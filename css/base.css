@@ -1,0 +1,56 @@
+/* Grunnstil og layout */
+:root {
+  --blue: #101537;
+  --yellow: #ffd84d;
+  --pink: #ff5aa5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--blue);
+  color: white;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Forside */
+.landing-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(145deg, #1b2257, #101537);
+  text-align: center;
+}
+
+.landing-card {
+  width: min(680px, 100%);
+  padding: 56px 30px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 25px;
+  background: rgba(255,255,255,.05);
+}
+
+.landing-card h1 {
+  margin: 0;
+  color: var(--yellow);
+  font-size: clamp(3rem, 11vw, 6rem);
+  line-height: 1;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.landing-subtitle {
+  margin: 18px 0 0;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+  font-weight: bold;
+}

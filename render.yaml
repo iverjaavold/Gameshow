@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: gameshow
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: echo "Ingen bygging nødvendig"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
