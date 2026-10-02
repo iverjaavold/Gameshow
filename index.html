@@ -7,6 +7,7 @@
   <title>Gameshow</title>
 
   <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/game.css" />
 </head>
 
 <body>
@@ -14,9 +15,23 @@
     <div class="landing-card">
       <h1>Gameshow</h1>
       <p class="landing-subtitle">by Iver A. N. J</p>
+
+      <form id="join-form" class="landing-actions">
+        <label for="code-input" class="muted">Har du fått en kode?</label>
+        <div class="row">
+          <input id="code-input" class="grow code-input" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="KODE" />
+          <button type="submit">Bli med</button>
+        </div>
+      </form>
+
+      <div class="landing-divider"><span>eller</span></div>
+
+      <button id="host-button" class="secondary">Lag nytt spill på hovedskjermen</button>
+      <p id="landing-error" class="error-text"></p>
     </div>
   </section>
 
+  <script src="js/common.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

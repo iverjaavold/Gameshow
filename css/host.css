@@ -1,0 +1,168 @@
+/* Hovedskjermen (TV/PC) */
+body.host {
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  font-size: clamp(14px, 1.25vw, 22px);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, .2);
+}
+.code-box { display: flex; align-items: baseline; gap: 10px; }
+.code-box strong { font-size: 2.2em; letter-spacing: 6px; color: var(--yellow); }
+.join-hint { color: var(--muted); }
+.join-hint b { color: var(--text); }
+.round-label { margin-left: auto; font-weight: 800; font-size: 1.2em; }
+.connection { width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
+.connection.off { background: var(--bad); }
+
+.stage {
+  overflow: auto;
+  padding: 20px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  min-height: 0;
+  scrollbar-color: rgba(255,255,255,.25) transparent;
+}
+.stage > * { max-width: 1400px; width: 100%; flex: none; }
+.stage > :first-child { margin-top: auto; }
+.stage > :last-child { margin-bottom: auto; }
+
+/* Poengtavle: figurer på søyler. Ingen tall, ingen markering av lederen. */
+.board {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(6px, 1.4vw, 24px);
+  padding: 8px 24px 0;
+  height: 28vh;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(to top, rgba(0,0,0,.35), transparent);
+}
+body.compact .board { height: 22vh; }
+.board .slot {
+  flex: 0 1 120px;
+  min-width: 48px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.board .slot .fig { transition: transform .3s; }
+.board .slot.offline .fig { opacity: .45; }
+.board .pillar {
+  width: 70%;
+  min-height: 8px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(to top, #3b4596, #5b67c9);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.25);
+  transition: height 1.2s cubic-bezier(.2, .9, .3, 1.1);
+}
+.board .name {
+  width: 100%;
+  text-align: center;
+  font-weight: 800;
+  padding: 6px 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Feed: «1 handling utført» osv. */
+.feed {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+.feed .item {
+  background: var(--pink);
+  color: white;
+  font-weight: 800;
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.4);
+  animation: feedIn .4s ease-out, feedOut .6s ease-in 5.4s forwards;
+}
+@keyframes feedIn { from { transform: translateX(120%); } to { transform: none; } }
+@keyframes feedOut { to { opacity: 0; transform: translateY(-10px); } }
+
+/* Host-knapper */
+.controls {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 60vw;
+  z-index: 20;
+}
+.controls button { box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+.controls .menu-toggle { background: rgba(0,0,0,.5); color: white; }
+
+/* Intro / store titler */
+.hero { text-align: center; }
+.hero .round-no { color: var(--pink); font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+.hero h1 { font-size: clamp(2.5rem, 6vw, 5.5rem); color: var(--yellow); margin: .1em 0; }
+.rules { list-style: none; }
+.hero .rules { list-style: none; padding: 0; margin: 24px auto 0; max-width: 900px; text-align: left; display: grid; gap: 10px; }
+.hero .rules li { background: var(--panel); border-radius: 14px; padding: 12px 18px; font-size: 1.15em; }
+.hero .rules li::before { content: "★ "; color: var(--yellow); }
+
+.join-big { text-align: center; }
+.join-big .code { font-size: clamp(4rem, 12vw, 10rem); font-weight: 900; letter-spacing: 14px; color: var(--yellow); line-height: 1; }
+.lobby-figs { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+.lobby-fig { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; font-weight: 800; }
+.lobby-fig .kick { position: absolute; top: -6px; right: -6px; padding: 2px 8px; font-size: .8em; border-radius: 999px; }
+
+/* Quiz */
+.quiz-q { font-size: clamp(1.6rem, 3vw, 2.8rem); font-weight: 900; text-align: center; line-height: 1.2; }
+.quiz-meta { display: flex; justify-content: space-between; align-items: center; }
+.quiz-meta .countdown { font-size: 2.6em; color: var(--yellow); }
+.event { text-align: center; font-size: 1.6em; font-weight: 900; color: var(--yellow); }
+
+/* Runde 1 – hvelv */
+.vault { display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; }
+.vault .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.vault .slot-box { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 14px; text-align: center; }
+.vault .slot-box h3 { margin: 0 0 8px; }
+.vault .slot-box .rule { color: var(--muted); font-size: .9em; margin-top: 8px; }
+.lamps { display: flex; gap: 8px; justify-content: center; }
+.lamp { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid var(--line); }
+.lamp.on { background: var(--good); box-shadow: 0 0 14px var(--good); }
+.lamp.alarm.on { background: var(--bad); box-shadow: 0 0 18px var(--bad); }
+
+/* Lag-oppsett */
+.teams { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.team { background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 16px; }
+.team.active { border-color: var(--yellow); box-shadow: 0 0 24px rgba(255, 216, 77, .25); }
+.team .figs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+
+.reveal-table { width: 100%; border-collapse: collapse; font-size: 1.1em; }
+.reveal-table td, .reveal-table th { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+
+.choice-chip { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 900; }
+.choice-chip.share { background: var(--good); color: #0b2814; }
+.choice-chip.take { background: var(--bad); color: white; }
+
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 24px; }
+.podium .step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.podium .block { width: 160px; border-radius: 14px 14px 0 0; background: var(--yellow); color: var(--bg); font-size: 3rem; font-weight: 900; display: grid; place-items: center; }

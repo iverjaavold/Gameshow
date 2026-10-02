@@ -1,0 +1,147 @@
+/* Felles stil for hovedskjerm og mobil */
+:root {
+  --bg: #101537;
+  --bg2: #1b2257;
+  --panel: rgba(255, 255, 255, .07);
+  --line: rgba(255, 255, 255, .18);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, .65);
+  --good: #4fd17a;
+  --bad: #ff5a5a;
+  --opt-a: #ff5a5a;
+  --opt-b: #3fa2ff;
+  --opt-c: #ffb83f;
+  --opt-d: #4fd17a;
+}
+
+body {
+  background: radial-gradient(circle at 50% 0%, #26307a 0%, var(--bg) 60%) fixed;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--yellow);
+  transition: transform .08s, filter .15s;
+  touch-action: manipulation;
+}
+button:active { transform: scale(.96); }
+button:disabled { opacity: .4; cursor: default; transform: none; }
+button.secondary { background: rgba(255, 255, 255, .14); color: var(--text); }
+button.pink { background: var(--pink); color: white; }
+button.good { background: var(--good); color: #0b2814; }
+button.bad { background: var(--bad); color: white; }
+button.selected { outline: 4px solid white; outline-offset: 2px; }
+
+input, select {
+  font: inherit;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: rgba(255, 255, 255, .08);
+  color: var(--text);
+  width: 100%;
+}
+input:focus { outline: none; border-color: var(--yellow); }
+
+h1, h2, h3 { margin: 0 0 .4em; }
+.muted { color: var(--muted); }
+.center { text-align: center; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.grow { flex: 1; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+}
+.tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  font-size: .85em;
+  font-weight: 700;
+}
+.tag.yellow { background: var(--yellow); color: var(--bg); }
+.tag.pink { background: var(--pink); }
+.big-number { font-size: 5rem; font-weight: 900; color: var(--yellow); line-height: 1; }
+.countdown { font-variant-numeric: tabular-nums; font-weight: 900; }
+.countdown.low { color: var(--bad); }
+
+/* Figurer */
+.figure-svg { display: block; overflow: visible; }
+
+/* Quizalternativer */
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.option {
+  border-radius: 16px;
+  padding: 16px;
+  font-weight: 800;
+  color: white;
+  text-align: left;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.option .letter {
+  flex: none;
+  width: 1.8em; height: 1.8em;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(0, 0, 0, .25);
+}
+.option:nth-child(1) { background: var(--opt-a); }
+.option:nth-child(2) { background: var(--opt-b); }
+.option:nth-child(3) { background: var(--opt-c); }
+.option:nth-child(4) { background: var(--opt-d); }
+.option.dim { opacity: .3; }
+.option.correct { outline: 5px solid white; box-shadow: 0 0 30px rgba(255,255,255,.6); }
+.option.mine { outline: 4px dashed white; }
+
+/* Rutenett (runde 3) */
+.grid {
+  display: grid;
+  gap: 4px;
+  background: rgba(255, 255, 255, .1);
+  padding: 4px;
+  border-radius: 12px;
+  aspect-ratio: 1;
+}
+.grid .cell {
+  background: rgba(255, 255, 255, .92);
+  border-radius: 6px;
+  aspect-ratio: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.grid .cell svg { width: 88%; height: 88%; }
+
+/* Terninger (runde 1) */
+.die {
+  width: 58px; height: 58px;
+  border-radius: 12px;
+  background: white;
+  color: var(--bg);
+  font-size: 1.8rem;
+  font-weight: 900;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+.die.empty { background: rgba(255,255,255,.12); color: var(--muted); border: 2px dashed var(--line); }
+.die.small { width: 44px; height: 44px; font-size: 1.3rem; }
+
+/* Livsbar (runde 8) */
+.hpbar { height: 14px; border-radius: 7px; background: rgba(255,255,255,.15); overflow: hidden; }
+.hpbar > div { height: 100%; background: var(--good); transition: width .5s; }
+.hpbar.low > div { background: var(--bad); }
+
+.hidden { display: none !important; }

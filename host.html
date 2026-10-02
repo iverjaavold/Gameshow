@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#101537" />
+  <title>Gameshow – hovedskjerm</title>
+
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/game.css" />
+  <link rel="stylesheet" href="css/host.css" />
+</head>
+
+<body class="host">
+  <header class="topbar">
+    <div class="code-box">
+      <span class="muted">Kode</span>
+      <strong id="code"></strong>
+    </div>
+    <div id="join-hint" class="join-hint"></div>
+    <div id="round-label" class="round-label"></div>
+    <div id="connection" class="connection"></div>
+  </header>
+
+  <div id="feed" class="feed"></div>
+  <main id="stage" class="stage"></main>
+  <section id="board" class="board"></section>
+  <nav id="controls" class="controls"></nav>
+
+  <script src="js/common.js"></script>
+  <script src="js/host.js"></script>
+</body>
+</html>
