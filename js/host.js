@@ -223,7 +223,7 @@
       <div class="round-no">Lederens makt</div>
       <h1>Lederen bestemmer</h1>
       <p style="font-size:1.4em">${esc(view.leaderPower.prompt)} …</p>
-      <p class="muted">Valget tas i hemmelighet på lederens mobil.</p>
+      <p class="muted">Valget tas i hemmelighet på lederens mobil. Går videre om ${countdown(view.leaderPower.endsAt)} s.</p>
     </div>`;
   }
 
@@ -366,6 +366,7 @@
       </div>
       <p class="center" style="font-size:1.3em">${stepText}</p>
       ${g.event ? `<div class="event">${esc(g.event)}</div>` : ""}
+      ${g.autoAt ? `<p class="center muted">Går videre om ${countdown(g.autoAt)} s</p>` : ""}
       ${g.upcoming.length ? `<p class="center muted">Neste: ${g.upcoming.map(n => n.map(esc).join(" og ")).join(" · ")}</p>` : ""}
       ${results}`;
   }

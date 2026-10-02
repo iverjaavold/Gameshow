@@ -261,9 +261,19 @@ class Game {
     }
     const def = leaderPowerFor(this, n + 1);
     const leaders = this.leaders();
-    if (def && leaders.length) {
+    // Står alle likt, finnes det ingen leder å gi makten til.
+    if (def && leaders.length && leaders.length < this.players.size) {
       const leader = pick(leaders);
-      this.leaderPower = { round: n + 1, leaderId: leader.id, def };
+      const ms = config.LEADER_POWER_SECONDS * 1000;
+      this.leaderPower = {
+        round: n + 1,
+        leaderId: leader.id,
+        def,
+        endsAt: Date.now() + ms,
+        timer: setTimeout(() => {
+          if (this.phase === "leaderPower") this.chooseLeaderPower(null, null);
+        }, ms)
+      };
       this.phase = "leaderPower";
       this.roundNumber = n + 1;
       this.toast(leader, "Du leder! Du får bestemme noe før neste runde.");
@@ -289,6 +299,7 @@ class Game {
       this.addFeed("Lederen har tatt et valg.");
     }
     const n = this.leaderPower.round;
+    clearTimeout(this.leaderPower.timer);
     this.leaderPower = null;
     this.prepareRound(n);
   }
@@ -563,6 +574,7 @@ class Game {
     this.clearRoundTimers();
     if (this.theft) clearTimeout(this.theft.timer);
     if (this.buy && this.buy.timer) clearTimeout(this.buy.timer);
+    if (this.leaderPower) clearTimeout(this.leaderPower.timer);
     this.listeners.forEach(l => l.res.end());
     this.listeners.clear();
   }
@@ -644,7 +656,7 @@ class Game {
       view.betting = { placed: this.bets.size, total: players.length };
     }
     if (this.phase === "buyTeammate") view.buy = this.buyView(null);
-    if (this.phase === "leaderPower") view.leaderPower = { prompt: this.leaderPower.def.prompt };
+    if (this.phase === "leaderPower") view.leaderPower = { prompt: this.leaderPower.def.prompt, endsAt: this.leaderPower.endsAt };
     if (this.phase === "round") view.game = this.round.hostView();
     if (this.phase === "results") {
       view.results = this.rankings().map((p, i) => ({ place: i + 1, id: p.id, name: p.name }));
@@ -718,7 +730,7 @@ class Game {
     if (this.phase === "buyTeammate") view.buy = this.buyView(player);
     if (this.phase === "leaderPower") {
       const lp = this.leaderPower;
-      view.leaderPower = { isLeader: lp.leaderId === player.id };
+      view.leaderPower = { isLeader: lp.leaderId === player.id, endsAt: lp.endsAt };
       if (view.leaderPower.isLeader) {
         view.leaderPower.prompt = lp.def.prompt;
         view.leaderPower.kind = lp.def.kind;

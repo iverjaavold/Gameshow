@@ -161,7 +161,15 @@ class VaultRound extends Round {
     run.event = notes.join(" ");
     if (run.alarm >= C.ALARM_MAX || run.level >= C.LEVELS) return this.endRun();
     run.step = "levelResult";
+    this.scheduleContinue(C.AUTO_NEXT_SECONDS);
     this.changed();
+  }
+
+  // Går videre av seg selv, så runden aldri står fast og venter på en knapp.
+  scheduleContinue(seconds) {
+    this.clearTimer(this.autoTimer);
+    this.autoAt = Date.now() + seconds * 1000;
+    this.autoTimer = this.timer(() => this.continueRun(), seconds * 1000);
   }
 
   endRun() {
@@ -175,11 +183,14 @@ class VaultRound extends Round {
     run.event = (run.alarm >= C.ALARM_MAX ? "ALARM! " : "") + `${this.names(run.members).join(" og ")} ${how}`;
     this.results.push({ names: this.names(run.members), cleared: run.cleared });
     this.lines.push(run.event);
+    this.scheduleContinue(C.AUTO_NEXT_PAIR_SECONDS);
     this.changed();
   }
 
   continueRun() {
     const run = this.run;
+    this.clearTimer(this.autoTimer);
+    this.autoAt = null;
     if (run.step === "levelResult") return this.prepareLevel();
     if (run.step === "runDone") return this.nextRun();
     throw new GameError("Ikke tilgjengelig nå.");
@@ -197,7 +208,7 @@ class VaultRound extends Round {
       return this.changed();
     }
     if (action === "endRun") {
-      if (this.run.step === "runDone") return this.nextRun();
+      if (this.run.step === "runDone") return this.continueRun();
       return this.endRun();
     }
     return super.hostAction(action);
@@ -211,6 +222,10 @@ class VaultRound extends Round {
     if (action === "place") return this.place(player, data);
     if (action === "continue") return this.continueRun();
     return super.playerAction(player, action);
+  }
+
+  autoAtFor(run) {
+    return run.step === "levelResult" || run.step === "runDone" ? this.autoAt : null;
   }
 
   slotView() {
@@ -250,6 +265,7 @@ class VaultRound extends Round {
       diceLeft: run.members.map(id => (run.dice[id] || []).length),
       slots: this.slotView(),
       event: run.event,
+      autoAt: this.autoAtFor(run),
       results: this.results,
       upcoming: this.runs.slice(this.runIndex + 1).map(r => this.names(r.members)),
       actions
@@ -278,7 +294,8 @@ class VaultRound extends Round {
       myTurn: run.step === "place" && this.currentPlayerId() === player.id,
       dice: run.dice[player.id] || [],
       slots: this.slotView(),
-      event: run.event
+      event: run.event,
+      autoAt: this.autoAtFor(run)
     };
   }
 }

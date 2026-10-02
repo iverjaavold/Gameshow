@@ -15,6 +15,7 @@ module.exports = {
 
   // Globale regler
   LEADER_INTEREST: 100, // lederrente etter hver runde
+  LEADER_POWER_SECONDS: 30, // lederen må velge innen så lang tid, ellers hoppes valget over
   CATCHUP_GAP: 1000, // mer enn så mye bak lederen gir catch-up
   CATCHUP_ROUNDS: 3, // antall runder med doble poeng
   CATCHUP_MULTIPLIER: 2,
@@ -55,7 +56,9 @@ module.exports = {
     LOCK_VALUES: [5, 6, 5, 6, 6],
     BALANCE_MAX_DIFF: 2,
     ALARM_MAX: 3,
-    POINTS_PER_LEVEL: 200
+    POINTS_PER_LEVEL: 200,
+    AUTO_NEXT_SECONDS: 6, // går automatisk til neste forsøk etter et nivå
+    AUTO_NEXT_PAIR_SECONDS: 10 // går automatisk til neste par / avslutter runden
   },
 
   // Runde 2 – Kongen på haugen

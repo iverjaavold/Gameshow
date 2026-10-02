@@ -479,16 +479,16 @@
 
   function mainLeaderPower() {
     const lp = view.leaderPower;
-    if (!lp.isLeader) return waiting("Lederen bestemmer …", "Vent litt.");
+    if (!lp.isLeader) return waiting("Lederen bestemmer …", `Går videre om ${countdown(lp.endsAt)} s.`);
     if (lp.kind === "option") {
-      return `<h1>Du leder!</h1><p class="big">${esc(lp.prompt)}</p>
+      return `<h1>Du leder!</h1><p class="big">${esc(lp.prompt)}</p><p class="muted">Velg innen ${countdown(lp.endsAt)} s, ellers hoppes valget over.</p>
         <div class="col">${lp.options.map(o => sendBtn(esc(o.label), "leaderPower", { value: o.id }, "huge-btn secondary")).join("")}</div>`;
     }
     // To spillere
     const picked = ui.lpPicked || [];
     const list = lp.options.map(o => `<button class="secondary ${picked.includes(o.id) ? "selected" : ""}" data-ui="lpPick" data-id="${esc(o.id)}">${esc(o.label)}</button>`).join("");
     const ready = picked.length === 2;
-    return `<h1>Du leder!</h1><p class="big">${esc(lp.prompt)}</p>
+    return `<h1>Du leder!</h1><p class="big">${esc(lp.prompt)}</p><p class="muted">Velg innen ${countdown(lp.endsAt)} s, ellers hoppes valget over.</p>
       <div class="col">${list}</div>
       ${ready ? sendBtn("Bekreft", "leaderPower", { value: picked }, "huge-btn") : `<p class="muted center">Velg to spillere.</p>`}`;
   }
@@ -606,7 +606,8 @@
       }
     } else {
       const last = g.step === "runDone" ? "" : roundBtn("Neste forsøk", "continue", {}, "huge-btn");
-      body = `<p class="big center">${esc(g.event || "")}</p>${last}`;
+      body = `<p class="big center">${esc(g.event || "")}</p>${last}
+        ${g.autoAt ? `<p class="center muted">Går videre om ${countdown(g.autoAt)} s</p>` : ""}`;
     }
     return `<h1>Hvelvet</h1><p class="muted">${lamps}</p>${mini}${body}
       ${g.step === "place" && g.event ? `<p class="center muted">${esc(g.event)}</p>` : ""}`;
