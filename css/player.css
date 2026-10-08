@@ -125,3 +125,45 @@ body.player {
   padding: 36px 16px;
   border-radius: 22px;
 }
+
+/* Buzzer og store trykkeknapper (Lynrunden, Gjett 30, Gruva) */
+.buzzer {
+  display: block;
+  width: min(78vw, 320px);
+  aspect-ratio: 1;
+  margin: 18px auto;
+  border-radius: 50%;
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: white;
+  background: radial-gradient(circle at 35% 30%, #ff6b6b, #c40000 70%);
+  box-shadow: 0 12px 0 #7a0000, 0 18px 40px rgba(0,0,0,.5);
+}
+.buzzer.good { background: radial-gradient(circle at 35% 30%, #7dffa6, #1e9e4a 70%); box-shadow: 0 12px 0 #0f5a28, 0 18px 40px rgba(0,0,0,.5); color: #0b2814; }
+.buzzer:active { transform: translateY(8px); box-shadow: 0 4px 0 #7a0000; }
+
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-list span { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 800; }
+.match-row { display: flex; flex-direction: column; gap: 6px; }
+.match-row select { font-size: 1.05em; }
+
+.react-pad {
+  margin-top: 10px;
+  min-height: 42vh;
+  border-radius: 24px;
+  background: rgba(255,255,255,.08);
+  border: 3px dashed var(--line);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 1.5em;
+  font-weight: 900;
+  user-select: none;
+  touch-action: none;
+}
+.react-pad:active { background: rgba(255,255,255,.18); }
+.player .f1-light { width: 44px; height: 44px; }
+.player .f1-lights { gap: 8px; padding: 12px; }
+
+.mine-phone { text-align: center; font-size: 4rem; font-weight: 900; color: var(--yellow); font-variant-numeric: tabular-nums; }
+select { font: inherit; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: #1b2257; color: var(--text); width: 100%; }

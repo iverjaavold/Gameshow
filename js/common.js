@@ -77,6 +77,50 @@ const GS = (function() {
     }, 200);
   }
 
+  /*
+    Animasjoner som må oppdateres hvert skjermbilde (ikke bare når serveren sender noe):
+    - [data-lights]: F1-lys (reaksjonstest). Tennes ett og ett og slukkes samtidig på server-tid.
+    - [data-mine]:   gruveverdien som stiger (formelen er kjent, bare rastidspunktet er hemmelig).
+    - [data-zoom]:   bildet som zoomer ut (bildezoom).
+    onFrame-funksjoner kan legges til av host.js / player.js.
+  */
+  const frameHandlers = [];
+  function onFrame(fn) {
+    frameHandlers.push(fn);
+  }
+
+  function mineValue(el, t) {
+    const pps = Number(el.dataset.pps);
+    const accel = Number(el.dataset.accel);
+    return Math.floor(pps * t + accel * t * t);
+  }
+
+  function animate() {
+    const t = now();
+    document.querySelectorAll("[data-lights]").forEach(el => {
+      const start = Number(el.dataset.lightsAt);
+      const step = Number(el.dataset.lightMs);
+      const out = Number(el.dataset.outAt);
+      [...el.children].forEach((light, i) => {
+        light.classList.toggle("on", t >= start + i * step && t < out);
+      });
+      el.classList.toggle("out", t >= out);
+    });
+    document.querySelectorAll("[data-mine]").forEach(el => {
+      if (el.dataset.frozen) return;
+      const secs = (t - Number(el.dataset.start)) / Number(el.dataset.secMs);
+      el.textContent = secs < 0 ? `Åpner om ${Math.ceil(-secs)} …` : mineValue(el, secs);
+    });
+    document.querySelectorAll("[data-zoom]").forEach(el => {
+      const p = Math.min(1, Math.max(0, (t - Number(el.dataset.start)) / Number(el.dataset.dur)));
+      const scale = el.dataset.done ? 1 : Math.pow(Number(el.dataset.z), 1 - p);
+      el.style.transform = `scale(${scale})`;
+    });
+    frameHandlers.forEach(fn => fn(t));
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
   function countdown(endsAt, extraClass = "") {
     if (!endsAt) return "";
     const left = Math.max(0, Math.ceil((endsAt - now()) / 1000));
@@ -258,5 +302,18 @@ const GS = (function() {
     }
   }
 
-  return { esc, attr, api, connect, now, startCountdowns, countdown, render, figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store };
+  // Felles visninger for nye leker
+  function lightsHtml(timing) {
+    const lights = Array.from({ length: timing.lights }, () => `<div class="f1-light"></div>`).join("");
+    return `<div class="f1-lights" data-lights data-lights-at="${timing.lightsAt}" data-light-ms="${timing.lightMs}" data-out-at="${timing.outAt}">${lights}</div>`;
+  }
+
+  function mineHtml(g, cls = "") {
+    return `<span class="mine-value ${cls}" data-mine data-start="${g.startedAt}" data-sec-ms="${g.secMs}" data-pps="${g.pps}" data-accel="${g.accel}"></span>`;
+  }
+
+  return {
+    esc, attr, api, connect, now, startCountdowns, countdown, render, onFrame,
+    figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml
+  };
 })();

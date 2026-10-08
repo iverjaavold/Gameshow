@@ -2,11 +2,13 @@
   Runde 6 – Lagduellen.
   Kvalifisering: raskest riktig på hvert lag blir lagets mester.
   Duell: mesterne svarer, første svar teller (feil gir poenget til motstanderen). Best av 5.
+  Spørsmålene avsløres og går videre av seg selv.
 */
 
 const config = require("../config");
 const { Round, GameError } = require("./base");
 const { QuizQuestion } = require("./quiz");
+const { botChoice } = require("./r2-konge");
 
 const C = config.R6;
 
@@ -42,13 +44,12 @@ class TeamDuelRound extends Round {
     this.event = null;
     this.firstAnswer = null;
     this.quiz = new QuizQuestion(this.game, this.options.leaderChoice, C.QUESTION_SECONDS);
-    this.questionTimer = this.timer(() => this.reveal(), C.QUESTION_SECONDS * 1000);
+    this.auto(() => this.reveal(), C.QUESTION_SECONDS);
     this.changed();
   }
 
   reveal() {
     if (this.quiz.revealed) return;
-    this.clearTimer(this.questionTimer);
     this.quiz.revealed = true;
 
     if (this.step === "qual") {
@@ -77,10 +78,12 @@ class TeamDuelRound extends Round {
           : `${this.name(first.id)} svarte feil – poenget går til ${this.name(this.champions[winner])}!`;
       }
     }
+    this.auto(() => this.advance(), C.REVEAL_SECONDS);
     this.changed();
   }
 
   advance() {
+    if (this.step === "done") return this.finish();
     if (!this.quiz.revealed) return this.reveal();
     if (this.step === "qual" && this.champions[0] && this.champions[1]) {
       this.step = "duel";
@@ -101,6 +104,7 @@ class TeamDuelRound extends Round {
     this.teams[winner].filter(id => id !== champ).forEach(id => this.game.award(id, C.TEAM_POINTS));
     this.event = `${this.name(champ)} vinner duellen for lag ${winner + 1}!`;
     this.lines = [this.event];
+    this.auto(() => this.finish(), C.REVEAL_SECONDS * 2);
     this.changed();
   }
 
@@ -112,10 +116,7 @@ class TeamDuelRound extends Round {
 
   hostAction(action) {
     if (action === "reveal") return this.reveal();
-    if (action === "next") {
-      if (this.step === "done") return this.finish();
-      return this.advance();
-    }
+    if (action === "next") return this.advance();
     return super.hostAction(action);
   }
 
@@ -131,12 +132,18 @@ class TeamDuelRound extends Round {
     this.changed();
   }
 
+  botAct(bot) {
+    if (this.step === "done" || this.quiz.revealed || this.quiz.answers.has(bot.id)) return;
+    if (this.eligible().includes(bot.id) && this.chance(0.3)) {
+      this.playerAction(bot, "answer", { choice: botChoice(this.quiz) });
+    }
+  }
+
   hostView() {
     const eligible = this.eligible();
-    const actions = [];
-    if (this.step === "done") actions.push({ action: "next", label: "Avslutt runden" });
-    else if (this.quiz.revealed) actions.push({ action: "next", label: "Neste spørsmål" });
-    else actions.push({ action: "reveal", label: "Avslør nå" });
+    const menu = [];
+    if (this.step !== "done" && !this.quiz.revealed) menu.push({ action: "reveal", label: "Avslør nå" });
+    else menu.push({ action: "next", label: "Gå videre nå" });
     return {
       type: "teamDuel",
       step: this.step,
@@ -150,7 +157,8 @@ class TeamDuelRound extends Round {
       totalPlayers: eligible.length,
       firstName: this.firstAnswer ? this.name(this.firstAnswer.id) : null,
       event: this.quiz.revealed || this.step === "done" ? this.event : null,
-      actions
+      actions: [],
+      menu
     };
   }
 

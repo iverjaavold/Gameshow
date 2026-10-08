@@ -39,8 +39,18 @@ function validCell(cell) {
 
 class DrawRound extends Round {
   start() {
+    // Faste par: lederens valg og/eller kjøpte medspillere (uten overlapp)
     const choice = this.options.leaderChoice;
-    const fixed = Array.isArray(choice) && choice.every(id => this.participants.includes(id)) ? [choice] : [];
+    const fixed = [];
+    const used = new Set();
+    const candidates = (this.options.fixedTeams || []).concat(Array.isArray(choice) ? [choice] : []);
+    candidates.forEach(team => {
+      const t = team.filter(id => this.participants.includes(id));
+      if (t.length === 2 && !t.some(id => used.has(id))) {
+        fixed.push(t);
+        t.forEach(id => used.add(id));
+      }
+    });
     const groups = this.game.randomizer.pairs(this.participants, fixed);
     this.teams = groups.map((members, i) => ({ id: i, members, figIndex: -1, solved: 0, status: "playing", feedback: null }));
     this.teams.forEach(team => this.nextFigure(team));
@@ -61,17 +71,20 @@ class DrawRound extends Round {
     if (team.figIndex >= C.FIGURES || team.members.length < 2) {
       team.status = "done";
       team.target = null;
-      if (this.teams.every(t => t.status === "done")) this.allDone = true;
+      if (this.teams.every(t => t.status === "done") && !this.allDone) {
+        this.allDone = true;
+        this.auto(() => this.finish(), config.ALL_DONE_DELAY_SECONDS);
+      }
       return;
     }
     team.level = team.figIndex + 1;
     team.target = makeFigure(team.level);
     team.grid = Array(C.GRID * C.GRID).fill(null);
-    team.endsAt = Date.now() + C.SECONDS_PER_FIGURE * 1000;
+    team.endsAt = this.at(C.SECONDS_PER_FIGURE);
     team.timer = this.timer(() => {
       team.feedback = { kind: "timeout", at: Date.now() };
       this.nextFigure(team);
-    }, C.SECONDS_PER_FIGURE * 1000);
+    }, C.SECONDS_PER_FIGURE);
   }
 
   submit(team) {
@@ -114,6 +127,20 @@ class DrawRound extends Round {
     return super.playerAction(player, action);
   }
 
+  // Testmodus: byggeren setter tilfeldige former, og leverer av og til en riktig figur.
+  botAct(bot) {
+    const team = this.teamOf(bot.id);
+    if (!team || team.status !== "playing" || this.explainerOf(team) === bot.id) return;
+    if (this.chance(0.08)) {
+      team.grid = team.target.map(cell => (cell ? { ...cell } : null));
+      return this.submit(team);
+    }
+    if (this.chance(0.3)) {
+      const index = Math.floor(Math.random() * C.GRID * C.GRID);
+      this.playerAction(bot, "cell", { index, cell: { s: pick(SHAPES), c: pick(COLORS), r: randInt(0, 3) } });
+    }
+  }
+
   summary() {
     return this.teams.map(t => `${this.names(t.members).join(" og ")} klarte ${t.solved} av ${C.FIGURES} figurer.`);
   }
@@ -134,7 +161,8 @@ class DrawRound extends Round {
         grid: t.status === "playing" ? t.grid : null, // bare byggerens rutenett, aldri fasiten
         feedback: t.feedback
       })),
-      actions: [{ action: "finish", label: this.allDone ? "Avslutt runden" : "Avslutt runden nå" }]
+      actions: [],
+      menu: [{ action: "finish", label: "Avslutt runden nå" }]
     };
   }
 

@@ -145,3 +145,8 @@ h1, h2, h3 { margin: 0 0 .4em; }
 .hpbar.low > div { background: var(--bad); }
 
 .hidden { display: none !important; }
+
+/* F1-lys (reaksjonstest) – felles for hovedskjerm og mobil */
+.f1-lights { display: flex; gap: 14px; justify-content: center; padding: 18px; background: #111; border-radius: 22px; width: fit-content; margin: 10px auto; }
+.f1-light { width: 70px; height: 70px; border-radius: 50%; background: #3a0d0d; box-shadow: inset 0 0 12px rgba(0,0,0,.8); transition: background .05s; }
+.f1-light.on { background: #ff2222; box-shadow: 0 0 30px #ff2222, inset 0 0 10px rgba(255,255,255,.3); }

@@ -1,10 +1,12 @@
 /*
   Runde 5 – Hvor mange reiser seg?
   Hemmelig gjetning, så Stå/Sitt med kort timer. Avsløres samtidig.
+  Timeren starter når alle har gjettet (eller gjettetiden er ute), og alt går videre av seg selv.
 */
 
 const config = require("../config");
 const { Round, GameError } = require("./base");
+const { randInt } = require("../util");
 
 const C = config.R5;
 
@@ -20,22 +22,20 @@ class StandRound extends Round {
     this.step = "guess"; // guess | stand | reveal
     this.guesses = new Map();
     this.choices = new Map();
-    this.endsAt = null;
     this.result = null;
+    this.auto(() => this.startTimer(), C.GUESS_SECONDS);
     this.changed();
   }
 
   startTimer() {
     if (this.step !== "guess") return;
     this.step = "stand";
-    this.endsAt = Date.now() + C.TIMER_SECONDS * 1000;
-    this.standTimer = this.timer(() => this.reveal(), C.TIMER_SECONDS * 1000);
+    this.auto(() => this.reveal(), C.TIMER_SECONDS);
     this.changed();
   }
 
   reveal() {
     if (this.step === "reveal") return;
-    this.clearTimer(this.standTimer);
     this.step = "reveal";
     const ids = this.activeParticipants();
     const standing = ids.filter(id => this.choices.get(id) === true).length;
@@ -50,17 +50,20 @@ class StandRound extends Round {
     });
     this.result = { standing, rows };
     this.history.push(standing);
+    this.auto(() => this.next(), C.REVEAL_SECONDS);
     this.changed();
+  }
+
+  next() {
+    if (this.step !== "reveal") return this.reveal();
+    if (this.index >= C.ROUNDS) return this.finish();
+    return this.nextTurn();
   }
 
   hostAction(action) {
     if (action === "startTimer") return this.startTimer();
     if (action === "reveal") return this.reveal();
-    if (action === "next") {
-      if (this.step !== "reveal") return this.reveal();
-      if (this.index >= C.ROUNDS) return this.finish();
-      return this.nextTurn();
-    }
+    if (action === "next") return this.next();
     return super.hostAction(action);
   }
 
@@ -71,6 +74,8 @@ class StandRound extends Round {
       const max = this.participants.length;
       if (!Number.isFinite(value) || value < 0 || value > max) throw new GameError(`Gjett mellom 0 og ${max}.`);
       this.guesses.set(player.id, value);
+      // Når alle har gjettet: start timeren etter en kort pause (så man rekker å ombestemme seg).
+      if (this.allIn(this.guesses)) this.soon(() => this.startTimer());
       return this.changed();
     }
     if (action === "stand") {
@@ -81,22 +86,32 @@ class StandRound extends Round {
     return super.playerAction(player, action);
   }
 
+  botAct(bot) {
+    if (this.step === "guess" && !this.guesses.has(bot.id) && this.chance(0.3)) {
+      this.playerAction(bot, "guess", { value: randInt(0, this.participants.length) });
+    }
+    if (this.step === "stand" && !this.choices.has(bot.id) && this.chance(0.3)) {
+      this.playerAction(bot, "stand", { stand: this.chance(0.5) });
+    }
+  }
+
   hostView() {
     const ids = this.activeParticipants();
-    const actions = [];
-    if (this.step === "guess") actions.push({ action: "startTimer", label: "Start timeren" });
-    if (this.step === "stand") actions.push({ action: "reveal", label: "Avslør nå" });
-    if (this.step === "reveal") actions.push({ action: "next", label: this.index >= C.ROUNDS ? "Avslutt runden" : "Neste omgang" });
+    const menu = [];
+    if (this.step === "guess") menu.push({ action: "startTimer", label: "Start timeren nå" });
+    if (this.step === "stand") menu.push({ action: "reveal", label: "Avslør nå" });
+    if (this.step === "reveal") menu.push({ action: "next", label: "Neste omgang nå" });
     return {
       type: "stand",
       index: this.index,
       total: C.ROUNDS,
       step: this.step,
-      endsAt: this.endsAt,
+      endsAt: this.step === "stand" ? this.autoAt : null,
       guessed: ids.filter(id => this.guesses.has(id)).length,
       totalPlayers: ids.length,
       result: this.step === "reveal" ? this.result : null,
-      actions
+      actions: [],
+      menu
     };
   }
 
@@ -106,7 +121,8 @@ class StandRound extends Round {
       index: this.index,
       total: C.ROUNDS,
       step: this.step,
-      endsAt: this.endsAt,
+      endsAt: this.step === "stand" ? this.autoAt : null,
+      guessEndsAt: this.step === "guess" ? this.autoAt : null,
       max: this.participants.length,
       myGuess: this.guesses.has(player.id) ? this.guesses.get(player.id) : null,
       myChoice: this.choices.has(player.id) ? this.choices.get(player.id) : null,

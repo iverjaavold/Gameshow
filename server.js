@@ -31,7 +31,9 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".webp": "image/webp",
+  ".gif": "image/gif"
 };
 
 function sendJson(res, status, data) {

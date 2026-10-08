@@ -3,11 +3,12 @@
   Parene spiller etter hverandre. Hver spiller kaster 4 terninger som bare vises på egen mobil.
   Paret bytter på å legge én terning: Balanse, Kode, Lås eller Fokus (polett for ±1).
   Et lag på 3 deles opp i to par, der én spiller går to ganger (uten poeng andre gang).
+  Alt går av seg selv: paret kaster selv (eller automatisk etter snakketiden), og appen går videre.
 */
 
 const config = require("../config");
 const { Round, GameError } = require("./base");
-const { rollDie } = require("../util");
+const { rollDie, pick } = require("../util");
 
 const C = config.R1;
 
@@ -15,7 +16,10 @@ let dieId = 1;
 
 class VaultRound extends Round {
   start() {
-    const groups = this.game.randomizer.pairs(this.participants);
+    const fixed = (this.options.fixedTeams || [])
+      .map(t => t.filter(id => this.participants.includes(id)))
+      .filter(t => t.length === 2);
+    const groups = this.game.randomizer.pairs(this.participants, fixed);
     this.runs = [];
     groups.forEach(g => {
       if (g.length === 3) {
@@ -49,12 +53,15 @@ class VaultRound extends Round {
     run.slots = { balance: {}, code: {}, lock: null };
     run.turn = run.level % 2;
     run.event = null;
+    // Kaster ingen selv, kastes terningene når snakketiden er ute.
+    this.auto(() => this.roll(), C.TALK_SECONDS);
     this.changed();
   }
 
   roll() {
     const run = this.run;
     if (run.step !== "talk") throw new GameError("Terningene er allerede kastet.");
+    this.cancelAuto();
     run.members.forEach(id => {
       run.dice[id] = Array.from({ length: C.DICE_PER_PLAYER }, () => ({ id: dieId++, v: rollDie() }));
     });
@@ -161,15 +168,8 @@ class VaultRound extends Round {
     run.event = notes.join(" ");
     if (run.alarm >= C.ALARM_MAX || run.level >= C.LEVELS) return this.endRun();
     run.step = "levelResult";
-    this.scheduleContinue(C.AUTO_NEXT_SECONDS);
+    this.auto(() => this.continueRun(), C.AUTO_NEXT_SECONDS);
     this.changed();
-  }
-
-  // Går videre av seg selv, så runden aldri står fast og venter på en knapp.
-  scheduleContinue(seconds) {
-    this.clearTimer(this.autoTimer);
-    this.autoAt = Date.now() + seconds * 1000;
-    this.autoTimer = this.timer(() => this.continueRun(), seconds * 1000);
   }
 
   endRun() {
@@ -183,14 +183,13 @@ class VaultRound extends Round {
     run.event = (run.alarm >= C.ALARM_MAX ? "ALARM! " : "") + `${this.names(run.members).join(" og ")} ${how}`;
     this.results.push({ names: this.names(run.members), cleared: run.cleared });
     this.lines.push(run.event);
-    this.scheduleContinue(C.AUTO_NEXT_PAIR_SECONDS);
+    this.auto(() => this.continueRun(), C.AUTO_NEXT_PAIR_SECONDS);
     this.changed();
   }
 
   continueRun() {
     const run = this.run;
-    this.clearTimer(this.autoTimer);
-    this.autoAt = null;
+    this.cancelAuto();
     if (run.step === "levelResult") return this.prepareLevel();
     if (run.step === "runDone") return this.nextRun();
     throw new GameError("Ikke tilgjengelig nå.");
@@ -224,8 +223,27 @@ class VaultRound extends Round {
     return super.playerAction(player, action);
   }
 
-  autoAtFor(run) {
-    return run.step === "levelResult" || run.step === "runDone" ? this.autoAt : null;
+  // Testmodus: kast terningene og legg dem på et fornuftig felt.
+  botAct(bot) {
+    const run = this.run;
+    if (!run || !run.members.includes(bot.id)) return;
+    if (run.step === "talk" && this.chance(0.2)) return this.roll();
+    if (run.step !== "place" || this.currentPlayerId() !== bot.id || !this.chance(0.5)) return;
+    const s = run.slots;
+    const dice = run.dice[bot.id];
+    const lockValue = C.LOCK_VALUES[run.level];
+    const lockDie = dice.find(d => d.v === lockValue);
+    let die = pick(dice);
+    let slot = "focus";
+    if (s.lock === null && lockDie) {
+      die = lockDie;
+      slot = "lock";
+    } else if (s.code[bot.id] === undefined) {
+      slot = "code";
+    } else if (s.balance[bot.id] === undefined) {
+      slot = "balance";
+    }
+    this.place(bot, { dieId: die.id, slot, adjust: 0 });
   }
 
   slotView() {
@@ -244,12 +262,11 @@ class VaultRound extends Round {
   hostView() {
     const run = this.run;
     if (!run) return { type: "vault" };
-    const actions = [];
-    if (run.step === "talk") actions.push({ action: "roll", label: "Kast terningene" });
-    if (run.step === "levelResult") actions.push({ action: "continue", label: "Neste forsøk" });
-    if (run.step === "runDone") actions.push({ action: "continue", label: this.runIndex + 1 >= this.runs.length ? "Avslutt runden" : "Neste par" });
-    if (run.step === "place") actions.push({ action: "skipTurn", label: "Hopp over tur" });
-    if (run.step !== "runDone") actions.push({ action: "endRun", label: "Avslutt for paret" });
+    const menu = [];
+    if (run.step === "talk") menu.push({ action: "roll", label: "Kast terningene nå" });
+    if (run.step === "levelResult" || run.step === "runDone") menu.push({ action: "continue", label: "Gå videre nå" });
+    if (run.step === "place") menu.push({ action: "skipTurn", label: "Hopp over tur" });
+    if (run.step !== "runDone") menu.push({ action: "endRun", label: "Avslutt for paret" });
     return {
       type: "vault",
       runIndex: this.runIndex,
@@ -265,10 +282,10 @@ class VaultRound extends Round {
       diceLeft: run.members.map(id => (run.dice[id] || []).length),
       slots: this.slotView(),
       event: run.event,
-      autoAt: this.autoAtFor(run),
       results: this.results,
       upcoming: this.runs.slice(this.runIndex + 1).map(r => this.names(r.members)),
-      actions
+      actions: [],
+      menu
     };
   }
 
@@ -295,7 +312,7 @@ class VaultRound extends Round {
       dice: run.dice[player.id] || [],
       slots: this.slotView(),
       event: run.event,
-      autoAt: this.autoAtFor(run)
+      autoAt: this.autoAt
     };
   }
 }

@@ -1,95 +1,139 @@
 /*
-  Runde 9 – Lynrunden.
-  Raske spørsmål som går automatisk videre. Doble poeng for alle (se Game.award).
+  Runde 9 – Lynrunden (buzzer).
+  Nedtelling fra 10, så 5 spørsmål på hovedskjermen. Alle har en rød buzzer på mobilen.
+  Først på buzzeren svarer høyt og har 5 sekunder. Hosten trykker grønn (+200) eller rød (−100),
+  og appen går videre av seg selv. Trykker ingen innen 10 sekunder, hoppes spørsmålet over.
+  Fasiten vises sløret for hosten (hold musen over for å se den) og avsløres etter vurderingen.
 */
 
 const config = require("../config");
-const { Round } = require("./base");
-const { QuizQuestion } = require("./quiz");
+const { Round, GameError } = require("./base");
+const { LYN_QUESTIONS } = require("../content-mini");
+const { pick } = require("../util");
 
 const C = config.R9;
 
 class LightningRound extends Round {
   start() {
     this.index = 0;
-    this.paused = false;
-    this.nextQuestion();
+    this.step = "countdown"; // countdown | question | answering | reveal
+    this.auto(() => this.nextQuestion(), C.START_COUNTDOWN);
+    this.changed();
+  }
+
+  drawQuestion() {
+    let pool = LYN_QUESTIONS.filter(q => !this.game.usedContent.has(q));
+    if (!pool.length) pool = LYN_QUESTIONS;
+    const q = pick(pool);
+    this.game.usedContent.add(q);
+    return q;
   }
 
   nextQuestion() {
-    this.index++;
-    this.quiz = new QuizQuestion(this.game, this.options.leaderChoice, C.QUESTION_SECONDS);
-    this.stepTimer = this.timer(() => this.reveal(), C.QUESTION_SECONDS * 1000);
-    this.changed();
-  }
-
-  reveal() {
-    if (this.quiz.revealed) return;
-    this.clearTimer(this.stepTimer);
-    this.quiz.revealed = true;
-    this.quiz.correctInOrder().forEach(({ id }) => this.game.award(id, C.CORRECT_POINTS, { quiz: true }));
-    this.revealEndsAt = Date.now() + C.REVEAL_SECONDS * 1000;
-    if (!this.paused) this.stepTimer = this.timer(() => this.advance(), C.REVEAL_SECONDS * 1000);
-    this.changed();
-  }
-
-  advance() {
     if (this.index >= C.QUESTIONS) return this.finish();
-    this.nextQuestion();
+    this.index++;
+    this.q = this.drawQuestion();
+    this.step = "question";
+    this.buzzerId = null;
+    this.result = null;
+    this.auto(() => this.skip(), C.BUZZ_SECONDS);
+    this.changed();
+  }
+
+  buzz(player) {
+    if (this.step !== "question") throw new GameError("For sent!");
+    this.buzzerId = player.id;
+    this.step = "answering";
+    // Svartiden vises som nedtelling. Hosten vurderer – appen venter på grønn/rød.
+    this.cancelAuto();
+    this.answerEndsAt = this.at(C.ANSWER_SECONDS);
+    this.changed();
+  }
+
+  judge(ok) {
+    if (this.step !== "answering") throw new GameError("Ingen svarer nå.");
+    if (ok) {
+      this.game.award(this.buzzerId, C.CORRECT_POINTS, { quiz: true });
+      this.result = `${this.name(this.buzzerId)} svarte riktig! +${C.CORRECT_POINTS}`;
+    } else {
+      this.game.adjust(this.buzzerId, C.WRONG_POINTS);
+      this.result = `${this.name(this.buzzerId)} svarte feil. ${C.WRONG_POINTS}`;
+    }
+    this.toReveal();
+  }
+
+  skip() {
+    if (this.step !== "question") return;
+    this.result = "Ingen trykket. Spørsmålet hoppes over.";
+    this.toReveal();
+  }
+
+  toReveal() {
+    this.step = "reveal";
+    this.auto(() => this.nextQuestion(), C.REVEAL_SECONDS);
+    this.changed();
   }
 
   hostAction(action) {
-    if (action === "pause") {
-      this.paused = true;
-      if (this.quiz.revealed) this.clearTimer(this.stepTimer);
-      return this.changed();
-    }
-    if (action === "resume") {
-      this.paused = false;
-      if (this.quiz.revealed) this.advance();
-      return this.changed();
-    }
-    if (action === "next") {
-      if (!this.quiz.revealed) return this.reveal();
-      this.clearTimer(this.stepTimer);
-      return this.advance();
+    if (action === "right") return this.judge(true);
+    if (action === "wrong") return this.judge(false);
+    if (action === "skip") {
+      if (this.step === "countdown") return this.nextQuestion();
+      if (this.step === "question") return this.skip();
+      if (this.step === "reveal") return this.nextQuestion();
+      return;
     }
     return super.hostAction(action);
   }
 
-  playerAction(player, action, data) {
-    if (action !== "answer") return super.playerAction(player, action);
-    if (this.quiz.answer(player.id, data.choice)) {
-      if (this.activeParticipants().every(id => this.quiz.answers.has(id))) this.reveal();
-      this.changed();
-    }
+  playerAction(player, action) {
+    if (action === "buzz") return this.buzz(player);
+    return super.playerAction(player, action);
+  }
+
+  botAct(bot) {
+    if (this.step === "question" && this.chance(0.12)) this.buzz(bot);
   }
 
   hostView() {
-    const ids = this.activeParticipants();
+    const actions = [];
+    const menu = [];
+    if (this.step === "answering") {
+      actions.push({ action: "right", label: `Riktig (+${C.CORRECT_POINTS})`, style: "good" });
+      actions.push({ action: "wrong", label: `Feil (${C.WRONG_POINTS})`, style: "bad" });
+    } else {
+      menu.push({ action: "skip", label: "Hopp videre" });
+    }
     return {
-      type: "quiz",
+      type: "lyn",
+      step: this.step,
       index: this.index,
       total: C.QUESTIONS,
-      question: this.quiz.publicView(),
-      answered: ids.filter(id => this.quiz.answers.has(id)).length,
-      totalPlayers: ids.length,
-      banner: "DOBLE POENG",
-      correctNames: this.quiz.revealed ? this.names(this.quiz.correctInOrder().map(c => c.id)) : null,
-      actions: [
-        this.paused ? { action: "resume", label: "Fortsett" } : { action: "pause", label: "Pause" },
-        { action: "next", label: "Hopp videre" }
-      ]
+      countdownEndsAt: this.step === "countdown" ? this.autoAt : null,
+      question: this.step === "countdown" ? null : this.q.q,
+      // Fasiten: sløret for hosten mens noen svarer, åpen etter vurderingen
+      answer: this.step === "answering" || this.step === "reveal" ? this.q.a : null,
+      buzzEndsAt: this.step === "question" ? this.autoAt : null,
+      buzzer: this.buzzerId ? this.publicPlayer(this.buzzerId) : null,
+      answerEndsAt: this.step === "answering" ? this.answerEndsAt : null,
+      result: this.step === "reveal" ? this.result : null,
+      actions,
+      menu
     };
   }
 
   playerView(player) {
     return {
-      type: "quiz",
+      type: "lyn",
+      step: this.step,
       index: this.index,
       total: C.QUESTIONS,
-      question: this.quiz.playerView(player.id),
-      banner: "Doble poeng!"
+      countdownEndsAt: this.step === "countdown" ? this.autoAt : null,
+      canBuzz: this.step === "question",
+      iBuzzed: this.buzzerId === player.id,
+      buzzerName: this.buzzerId ? this.name(this.buzzerId) : null,
+      answerEndsAt: this.step === "answering" ? this.answerEndsAt : null,
+      result: this.step === "reveal" ? this.result : null
     };
   }
 }

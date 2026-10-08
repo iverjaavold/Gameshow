@@ -166,3 +166,65 @@ body.compact .board { height: 22vh; }
 .podium { display: flex; align-items: flex-end; justify-content: center; gap: 24px; }
 .podium .step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .podium .block { width: 160px; border-radius: 14px 14px 0 0; background: var(--yellow); color: var(--bg); font-size: 3rem; font-weight: 900; display: grid; place-items: center; }
+
+/* ---------- Lobby: velg spill ---------- */
+.lobby { display: grid; grid-template-columns: 1fr minmax(420px, 1fr); gap: 28px; align-items: start; max-width: 1500px; }
+.lobby-left { gap: 18px; }
+.lobby-left .join-big .code { font-size: clamp(3rem, 8vw, 7rem); }
+.lobby-right { max-height: calc(100vh - 150px); gap: 12px; }
+.lobby-right select { width: auto; padding: 8px 10px; }
+.pick-scroll { overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 6px; }
+.pick-scroll h3 { margin: 10px 0 4px; color: var(--pink); text-transform: uppercase; letter-spacing: 2px; font-size: .9em; }
+.game-pick { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,.04); cursor: pointer; opacity: .55; }
+.game-pick.on { opacity: 1; background: rgba(255,255,255,.1); }
+.game-pick input { width: 22px; height: 22px; flex: none; accent-color: var(--yellow); }
+.game-pick small { display: block; color: var(--muted); }
+.game-pick .minutes { color: var(--muted); white-space: nowrap; font-size: .9em; }
+button.small { padding: 8px 12px; font-size: .9em; }
+
+/* Oversikt over spillene */
+.plan-strip { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.plan-strip span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: .85em; }
+.plan-strip span.mini { font-style: italic; }
+.plan-strip span.done { opacity: .35; text-decoration: line-through; }
+.plan-strip span.now { background: var(--yellow); color: var(--bg); font-weight: 800; }
+
+/* Kontroller: få knapper, resten i menyen */
+.controls { align-items: center; }
+.controls .big-control { font-size: 1.15em; padding: 14px 24px; }
+.controls .menu { position: absolute; bottom: 64px; right: 0; display: flex; flex-direction: column; gap: 6px; background: rgba(8,10,30,.95); padding: 10px; border-radius: 14px; border: 1px solid var(--line); min-width: 240px; }
+.controls .menu button { text-align: left; }
+.auto-pill { background: rgba(0,0,0,.5); padding: 10px 14px; border-radius: 999px; color: var(--muted); font-weight: 700; }
+
+.mid-title { font-size: clamp(2rem, 4.2vw, 3.6rem) !important; }
+
+/* Lynrunden */
+.lyn-q { font-size: clamp(2rem, 4vw, 3.4rem); margin: 10px 0 20px; }
+.spoiler { filter: blur(9px); transition: filter .2s; cursor: help; font-size: 1.3em; padding: 6px 14px; background: rgba(255,255,255,.08); border-radius: 10px; }
+.spoiler:hover { filter: none; }
+
+/* Minirunder */
+.animal-list { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.animal-list span { background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 12px 22px; font-size: 1.6em; font-weight: 800; }
+.panel.decoy { border-color: var(--pink); }
+.panel.match { border-color: var(--yellow); }
+.now-big { font-size: clamp(8rem, 22vw, 16rem); }
+.gift { font-size: 8rem; line-height: 1; }
+.mine-big { text-align: center; font-size: clamp(5rem, 14vw, 11rem); font-weight: 900; color: var(--yellow); line-height: 1; }
+.mine-big.crash { color: var(--bad); }
+.mine-big .mine-value { font-variant-numeric: tabular-nums; }
+
+/* Bildezoom */
+.zoom-frame { width: min(520px, 60vh); aspect-ratio: 1; margin: 0 auto; overflow: hidden; border-radius: 24px; background: white; border: 6px solid var(--yellow); }
+.zoom-inner { width: 100%; height: 100%; display: grid; place-items: center; will-change: transform; }
+.zoom-inner img { width: 100%; height: 100%; object-fit: cover; }
+.zoom-emoji { font-size: min(420px, 48vh); line-height: 1; }
+.zoom-player { position: relative; }
+.zoom-player .check { position: absolute; top: -8px; right: -8px; background: var(--good); color: #0b2814; border-radius: 50%; width: 28px; height: 28px; display: grid; place-items: center; font-weight: 900; }
+
+/* Menyen «Velg spill videre» */
+.planner { position: fixed; inset: 0; z-index: 30; background: rgba(8,10,30,.75); display: grid; place-items: center; padding: 30px; }
+.planner-panel { width: min(760px, 100%); max-height: calc(100vh - 60px); background: #1b2257; gap: 12px; }
+.planner-panel .pick-scroll { max-height: 48vh; }
+.game-pick.locked { opacity: .3; cursor: not-allowed; }
+.controls .planner-toggle { font-size: .95em; }

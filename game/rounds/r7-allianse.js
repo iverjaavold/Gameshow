@@ -80,13 +80,12 @@ class AllianceRound extends Round {
 
   startChoice() {
     this.step = "choice";
-    this.endsAt = Date.now() + C.CHOICE_SECONDS * 1000;
-    this.choiceTimer = this.timer(() => this.reveal(), C.CHOICE_SECONDS * 1000);
+    this.auto(() => this.reveal(), C.CHOICE_SECONDS);
+    this.endsAt = this.autoAt;
   }
 
   reveal() {
     if (this.step !== "choice") return;
-    this.clearTimer(this.choiceTimer);
     this.step = "reveal";
     this.outcomes = this.teams.map(team => {
       const picks = team.members.map(id => ({ id, name: this.name(id), take: this.choices.get(id) === "take" }));
@@ -105,7 +104,23 @@ class AllianceRound extends Round {
       this.lines.push(`${this.names(team.members).join(", ")}: ${text}`);
       return { picks, text, pot: team.pot };
     });
+    this.auto(() => this.finish(), C.REVEAL_SECONDS);
     this.changed();
+  }
+
+  // Testmodus: bot-laget gjetter, registrerer (tilfeldig) og stopper når potten er fin.
+  botAct(bot) {
+    if (this.step === "choice" && !this.choices.has(bot.id) && this.chance(0.3)) {
+      return this.playerAction(bot, "choose", { choice: this.chance(0.7) ? "share" : "take" });
+    }
+    if (this.step !== "play") return;
+    const team = this.team;
+    if (team.members[team.guesser] !== bot.id || !this.chance(0.4)) return;
+    if (team.sub === "guess") {
+      if (team.pot >= 300 && this.chance(0.5)) return this.stop();
+      return this.guess(this.chance(0.5) ? "higher" : "lower");
+    }
+    return this.result(this.chance(0.65));
   }
 
   hostAction(action, data) {
@@ -124,6 +139,9 @@ class AllianceRound extends Round {
       if (this.step !== "choice") throw new GameError("Ikke tid for å velge.");
       if (data.choice !== "share" && data.choice !== "take") throw new GameError("Ugyldig valg.");
       this.choices.set(player.id, data.choice);
+      // Alle har valgt: avslør etter en kort pause (man kan ombestemme seg til da).
+      if (this.allIn(this.choices)) this.soon(() => this.reveal());
+      this.endsAt = this.autoAt;
       return this.changed();
     }
     if (this.step !== "play" || !this.team.members.includes(player.id)) throw new GameError("Det er ikke lagets tur.");
@@ -134,22 +152,25 @@ class AllianceRound extends Round {
   }
 
   hostView() {
+    // Laget registrerer selv på mobilen. Hosten har grønn/rød for kortet (menneskelig vurdering).
     const actions = [];
+    const menu = [];
     if (this.step === "play") {
       const t = this.team;
       if (t.sub === "guess") {
-        actions.push({ action: "guess", dir: "higher", label: "Høyere" });
-        actions.push({ action: "guess", dir: "lower", label: "Lavere" });
-        actions.push({ action: "stop", label: "Stopp og sikre potten" });
+        menu.push({ action: "guess", dir: "higher", label: "Høyere" });
+        menu.push({ action: "guess", dir: "lower", label: "Lavere" });
+        menu.push({ action: "stop", label: "Stopp og sikre potten" });
       } else {
-        actions.push({ action: "result", ok: true, label: "Riktig" });
-        actions.push({ action: "result", ok: false, label: "Feil" });
+        actions.push({ action: "result", ok: true, label: "Riktig", style: "good" });
+        actions.push({ action: "result", ok: false, label: "Feil", style: "bad" });
       }
     }
-    if (this.step === "choice") actions.push({ action: "reveal", label: "Avslør valgene" });
-    if (this.step === "reveal") actions.push({ action: "next", label: "Avslutt runden" });
+    if (this.step === "choice") menu.push({ action: "reveal", label: "Avslør valgene nå" });
+    if (this.step === "reveal") menu.push({ action: "next", label: "Avslutt runden nå" });
 
     return {
+      menu,
       type: "alliance",
       step: this.step,
       potPerCorrect: C.POT_PER_CORRECT,

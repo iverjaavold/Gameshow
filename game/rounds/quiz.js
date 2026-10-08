@@ -4,7 +4,7 @@
 */
 
 const { QUESTIONS } = require("../content");
-const { pick, shuffle } = require("../util");
+const { pick, shuffle, ms } = require("../util");
 
 function drawQuestion(game, category) {
   const unused = QUESTIONS.filter(q => !game.usedQuestions.has(q));
@@ -29,7 +29,7 @@ class QuizQuestion {
   constructor(game, category, seconds) {
     this.q = drawQuestion(game, category);
     this.startedAt = Date.now();
-    this.endsAt = this.startedAt + seconds * 1000;
+    this.endsAt = this.startedAt + ms(seconds);
     this.answers = new Map(); // playerId -> { choice, at }
     this.revealed = false;
   }
@@ -40,6 +40,12 @@ class QuizQuestion {
     if (!Number.isInteger(choice) || choice < 0 || choice > 3) return false;
     this.answers.set(playerId, { choice, at: Date.now() });
     return true;
+  }
+
+  // Testmodus: bot svarer riktig med en viss sannsynlighet
+  botAnswer(playerId, correctChance = 0.4) {
+    const choice = Math.random() < correctChance ? this.q.correct : Math.floor(Math.random() * 4);
+    return this.answer(playerId, choice);
   }
 
   isCorrect(playerId) {

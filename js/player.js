@@ -264,9 +264,27 @@
             return;
           }
           if (await round("bet", { outcome: ui.finalOutcome, stake: amount })) toast("Innsatsen er registrert.");
+        } else if (data.kind === "auksjon") {
+          if (await round("bid", { amount })) toast("Budet er registrert.");
         } else if (await send(data.kind, { amount })) {
           toast("Registrert!");
           if (input) delete input.dataset.dirty;
+        }
+        return;
+      }
+      case "sendText": {
+        // Fritekst/tall til en runde: data-action = rundehandling, data-field = feltnavn
+        const input = document.getElementById(data.input);
+        const value = input ? input.value.trim() : "";
+        if (!value) {
+          toast("Skriv noe først.", true);
+          return;
+        }
+        if (await round(data.action, { [data.field]: value })) {
+          if (input && data.keep !== "1") {
+            input.value = "";
+            delete input.dataset.dirty;
+          }
         }
         return;
       }
@@ -281,6 +299,43 @@
     }
     draw();
   }
+
+  // Enter i et tekstfelt trykker på send-knappen som hører til feltet
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || !e.target.matches("input[id]")) return;
+    const btn = document.querySelector(`[data-input="${CSS.escape(e.target.id)}"]`);
+    if (btn) {
+      e.preventDefault();
+      btn.click();
+    }
+  });
+
+  // Hvem er hvilket dyr?: valg i nedtrekksmenyene sendes med en gang
+  document.addEventListener("change", e => {
+    const sel = e.target.closest("[data-match]");
+    if (sel) round("match", { target: sel.dataset.match, item: sel.value === "" ? null : Number(sel.value) });
+  });
+
+  /*
+    Reaksjonstest: tiden måles HER, på mobilen, fra lysene slukker på skjermen til trykket.
+    Lysene styres av server-tid (GS.now), og øyeblikket de slukker registreres med performance.now().
+  */
+  const reaction = { outAt: null, outPerf: null, sent: false };
+  GS.onFrame(t => {
+    const g = view && view.phase === "round" && view.game;
+    if (!g || g.type !== "reaksjon" || g.step !== "running") return;
+    if (reaction.outAt !== g.timing.outAt) Object.assign(reaction, { outAt: g.timing.outAt, outPerf: null, sent: g.reported });
+    if (reaction.outPerf === null && t >= reaction.outAt) reaction.outPerf = performance.now();
+  });
+  document.addEventListener("pointerdown", e => {
+    if (!e.target.closest("[data-react]") || reaction.sent || !reaction.outAt) return;
+    e.preventDefault();
+    reaction.sent = true;
+    const data = reaction.outPerf === null ? { falseStart: true } : { ms: Math.round(performance.now() - reaction.outPerf) };
+    const pad = document.querySelector("[data-react]");
+    if (pad) pad.textContent = data.falseStart ? "TYVSTART!" : `${data.ms} ms`;
+    round("react", data);
+  });
 
   function placeShape(index) {
     const g = view && view.game;
@@ -386,7 +441,7 @@
         ${sendBtn(`${item.price}`, "buy", { itemId: item.id }, "", `Kjøpe ${item.name} for ${item.price} poeng?`).replace("<button", `<button ${maxed || me.score < item.price ? "disabled" : ""}`)}
       </div>`;
     }).join("");
-    return `<p class="muted">Bare «1 handling utført» vises på hovedskjermen. Shopen stenger når runde 8 starter.</p>${items}`;
+    return `<p class="muted">Bare «1 handling utført» vises på hovedskjermen. Shopen stenger når ca. 70 % av spillet er ferdig.</p>${items}`;
   }
 
   function cardsHtml() {
@@ -425,14 +480,14 @@
         return waiting("Du er med!", "Vent på at hosten starter spillet.") +
           uiBtn("Endre figur", "open", { panel: "figure" }, "secondary");
       case "intro":
-        return `<div class="waiting"><p class="muted">Runde ${view.round.number}</p><h1>${esc(view.round.title)}</h1>
+        return `<div class="waiting"><p class="muted">Spill ${view.round.number} av ${view.round.total}</p><h1>${esc(view.round.title)}</h1>
           <p class="big">${esc(view.round.tag)}</p><p class="muted">Følg med på hovedskjermen!</p></div>`;
       case "betting": return mainBetting();
       case "buyTeammate": return mainBuy();
       case "leaderPower": return mainLeaderPower();
       case "round": return mainRound();
       case "roundEnd":
-        return waiting(`Runde ${view.round.number} er ferdig`, `Du har ${view.me.score} poeng.`);
+        return waiting(`${esc(view.round.title)} er ferdig`, `Du har ${view.me.score} poeng.`);
       case "results": {
         const r = view.results;
         return waiting(r.place === 1 ? "Du vant! 🏆" : `Du ble nr. ${r.place} av ${r.total}`, `Vinner: ${esc(r.winner)} · Du endte på ${view.me.score} poeng.`);
@@ -458,15 +513,15 @@
 
   function mainBetting() {
     const b = view.betting;
-    return `<h1>Bettingpause!</h1>
-      <p>Sats poeng i hemmelighet. Du vet ikke hva neste runde er! Gjør du det bra (over halvparten av maks poeng), vinner du innsatsen. Ellers taper du den.</p>
+    return `<h1>Bettingpause! ${countdown(view.autoAt)}</h1>
+      <p>Sats poeng i hemmelighet. Du vet ikke hva neste spill er! Gjør du det bra (over halvparten av maks poeng), vinner du innsatsen. Ellers taper du den.</p>
       ${amountForm("bet-amount", "bet", b.max, b.myBet, `Innsats (maks ${b.max})`)}`;
   }
 
   function mainBuy() {
     const b = view.buy;
     if (b.step === "bidding") {
-      return `<h1>Kjøp en medspiller</h1>
+      return `<h1>Kjøp en medspiller ${countdown(b.endsAt)}</h1>
         <p>By poeng i hemmelighet. Høyeste bud velger medspiller først i neste runde. Budet trekkes fra poengene dine.</p>
         ${amountForm("bid-amount", "bid", view.me.score, b.myBid, "Ditt bud")}`;
     }
@@ -508,9 +563,153 @@
       teamDuel: roundTeamDuel,
       alliance: roundAlliance,
       fight: roundFight,
-      final: roundFinal
+      final: roundFinal,
+      lyn: roundLyn,
+      dyr: roundDyr,
+      tretti: roundTretti,
+      tenk: roundTenk,
+      auksjon: roundAuksjon,
+      reaksjon: roundReaksjon,
+      estimat: roundEstimat,
+      gruva: roundGruva,
+      bilde: roundBilde
     }[g.type];
     return fn ? fn(g) : "";
+  }
+
+  // Tekstfelt med send-knapp (Enter sender også)
+  function textForm(id, action, field, placeholder, label, opts = {}) {
+    return `<div class="panel col">
+      ${label ? `<label for="${id}" class="big">${label}</label>` : ""}
+      <input id="${id}" ${opts.number ? `inputmode="decimal"` : ""} autocomplete="off" autocapitalize="off" maxlength="40" placeholder="${esc(placeholder)}" ${opts.disabled ? "disabled" : ""} />
+      <button class="huge-btn" data-ui="sendText" data-input="${id}" data-action="${action}" data-field="${field}" ${opts.keep ? `data-keep="1"` : ""} ${opts.disabled ? "disabled" : ""}>${opts.button || "Send"}</button>
+    </div>`;
+  }
+
+  // ---------- Lynrunden ----------
+
+  function roundLyn(g) {
+    const head = `<p class="muted">Lynrunden · ${g.index ? `spørsmål ${g.index} av ${g.total}` : "gjør deg klar"}</p>`;
+    if (g.step === "countdown") return head + `<div class="waiting"><h1>Gjør deg klar!</h1><div class="big-number">${countdown(g.countdownEndsAt)}</div><p class="big">Se på hovedskjermen.</p></div>`;
+    if (g.step === "question") {
+      return head + `<p class="center big">Vet du svaret? Trykk!</p>
+        ${roundBtn("BUZZ!", "buzz", {}, "buzzer")}`;
+    }
+    if (g.step === "answering") {
+      return head + (g.iBuzzed
+        ? `<div class="waiting"><h1>Du var først! Svar høyt!</h1><div class="big-number">${countdown(g.answerEndsAt)}</div></div>`
+        : waiting(`${esc(g.buzzerName)} svarer …`, "Følg med på hovedskjermen."));
+    }
+    return head + waiting(esc(g.result || ""), "Neste spørsmål kommer …");
+  }
+
+  // ---------- Minirunder ----------
+
+  function roundDyr(g) {
+    const list = `<div class="chip-list">${g.items.map(it => `<span>${esc(it.label)}</span>`).join("")}</div>`;
+    if (g.step === "write") {
+      if (g.myAnimal) return waiting(`Du skrev: ${esc(g.myAnimal)}`, `Venter på de andre … ${countdown(g.endsAt)}`);
+      return `<h1>Skriv et dyr</h1><p>I hemmelighet! De andre skal gjette at det var deg. ${countdown(g.endsAt)}</p>
+        ${textForm("dyr-input", "animal", "text", "F.eks. Pingvin", "", { button: "Send dyret" })}`;
+    }
+    if (g.step === "show") return `<h1>Her er dyrene</h1><p>Ett av dem er falskt! Koblingen starter om ${countdown(g.endsAt)} s.</p>${list}`;
+    if (g.step === "match") {
+      if (g.done) return waiting("Koblingene er sendt!", `Venter på de andre … ${countdown(g.endsAt)}`);
+      const rows = g.targets.map(t => {
+        const current = g.myMatches[t.id];
+        const opts = g.choices.map(c => `<option value="${c.n}" ${current === c.n ? "selected" : ""}>${esc(c.label)}</option>`).join("");
+        return `<label class="match-row"><b>${esc(t.name)}</b><select data-match="${esc(t.id)}"><option value="">Velg dyr …</option>${opts}</select></label>`;
+      }).join("");
+      return `<h1>Hvem skrev hva? ${countdown(g.endsAt)}</h1>
+        <p class="muted">Ett dyr blir til overs – det er lokkeduen.</p>
+        ${list}
+        <div class="col">${rows}</div>
+        ${roundBtn("Ferdig!", "doneMatching", {}, "huge-btn good")}`;
+    }
+    const answers = g.answers.map(a => `<div class="panel"><b>${esc(a.label)}</b>: ${a.decoy ? "🎭 ekstra dyr" : a.names.map(esc).join(", ")}</div>`).join("");
+    return `<h1>Du fikk ${g.correct} riktige!</h1><p class="big">+${g.correct * 100} poeng</p><div class="col">${answers}</div>`;
+  }
+
+  function roundTretti(g) {
+    if (g.step === "running") {
+      if (g.pressed) return waiting("Registrert!", "Venter på de andre …");
+      return `<h1 class="center">Trykk etter 30 sekunder</h1><p class="center">Ingen klokke. Tell i hodet!</p>
+        ${roundBtn("NÅ!", "press", {}, "buzzer good")}`;
+    }
+    const m = g.mine;
+    if (!m) return waiting("Ferdig!");
+    return waiting(m.seconds === null ? "Du trykket ikke!" : `${m.seconds} sekunder`, `${m.off} s unna · ${m.points} poeng`);
+  }
+
+  function roundTenk(g) {
+    const head = `<p class="muted">Tenk likt · ${g.index} av ${g.total}</p><h1>${esc(g.prompt)}</h1>`;
+    if (g.step === "answer") {
+      if (g.myAnswer) return head + waiting(`Du skrev: ${esc(g.myAnswer)}`, `Venter på de andre … ${countdown(g.endsAt)}`);
+      return head + `<p>Skriv det du tror <b>flest andre</b> skriver! ${countdown(g.endsAt)}</p>${textForm("tenk-input", "answer", "text", "Ditt svar", "")}`;
+    }
+    if (!g.myAnswer) return head + waiting("Du svarte ikke.");
+    return head + waiting(g.matches ? `${g.matches} tenkte likt som deg!` : "Ingen tenkte som deg.", `Du skrev «${esc(g.myAnswer)}» · +${g.points} poeng`);
+  }
+
+  function roundAuksjon(g) {
+    if (g.step === "bid") {
+      return `<h1>🎁 Auksjon! ${countdown(g.endsAt)}</h1>
+        <p>En hemmelig pakke: poeng eller et kort fra shopen. Høyeste bud betaler og får den. Ved likt bud vinner den som bød først.</p>
+        ${amountForm("auksjon-bid", "auksjon", g.max, g.myBid, `Ditt bud (maks ${g.max})`)}`;
+    }
+    if (g.won) return waiting("Du vant auksjonen! 🎉", `Du betalte ${g.paid} poeng. Pakken inneholdt ${esc(g.prize)}.`);
+    return waiting("Auksjonen er avgjort", g.myBid ? "Du vant ikke denne gangen." : "Du bød ikke.");
+  }
+
+  function roundReaksjon(g) {
+    if (g.step === "running") {
+      if (g.reported) return waiting("Registrert!", "Venter på de andre …");
+      return `${GS.lightsHtml(g.timing)}
+        <div class="react-pad" data-react>Trykk her når lysene slukker!</div>
+        <p class="center muted">Tyvstart gir −100 poeng.</p>`;
+    }
+    const m = g.mine;
+    if (!m) return waiting("Ferdig!");
+    if (m.falseStart) return waiting("Tyvstart! 😬", `${m.points} poeng`);
+    if (m.ms === null) return waiting("Du trykket ikke.");
+    return waiting(`${m.ms} ms`, `Plass ${m.place}${m.points ? ` · +${m.points} poeng` : ""}`);
+  }
+
+  function roundEstimat(g) {
+    const head = `<p class="muted">Estimering · ${g.index} av ${g.total}</p><h1>${esc(g.question)}</h1><p class="big">Svar i ${esc(g.unit)}</p>`;
+    if (g.step === "answer") {
+      if (g.myGuess !== null) return head + waiting(`Du gjettet ${g.myGuess.toLocaleString("nb-NO")}`, `Venter på de andre … ${countdown(g.endsAt)}`);
+      return head + `<p>${countdown(g.endsAt)} sekunder</p>${textForm("estimat-input", "estimate", "value", "Bare tall", "", { number: true })}`;
+    }
+    const m = g.mine;
+    return head + waiting(`Fasit: ${Number(g.answer).toLocaleString("nb-NO")}`, m ? `Du ble nr. ${m.place}${m.points ? ` · +${m.points} poeng` : ""}` : "Du svarte ikke.");
+  }
+
+  function roundGruva(g) {
+    if (g.step === "running") {
+      if (g.taken !== null) return waiting(`Du tok ${g.taken} poeng!`, "Nå får vi se når gruva raser …");
+      return `<h1 class="center">Gruva</h1>
+        <div class="mine-phone">${GS.mineHtml(g)}</div>
+        ${roundBtn("⛏️ TA POENGENE", "take", {}, "buzzer good")}
+        <p class="center muted">Raser gruva før du trykker, får du ${g.crashPoints}!</p>`;
+    }
+    if (g.taken === g.crashPoints) return waiting("RAS! 💥", `Du var fortsatt inne: ${g.crashPoints} poeng.`);
+    return waiting("Du kom deg ut!", `+${g.taken} poeng`);
+  }
+
+  function roundBilde(g) {
+    const head = `<p class="muted">Bildezoom · ${g.index} av ${g.total} ${g.endsAt ? `· ${countdown(g.endsAt)} s` : ""}</p>`;
+    if (g.step === "reveal") return head + waiting(`Det var: ${esc(g.answer)}`, g.solved ? `Du fikk ${g.points} poeng!` : "Du gjettet ikke riktig.");
+    if (g.solved) return head + waiting("✓ Riktig!", `+${g.points} poeng. Ikke si svaret høyt!`);
+    const cooling = g.cooldownUntil && g.cooldownUntil > GS.now();
+    // Serveren sender ikke noe når pausen er over, så vi tegner på nytt selv.
+    if (cooling && ui.cooldownTimerFor !== g.cooldownUntil) {
+      ui.cooldownTimerFor = g.cooldownUntil;
+      setTimeout(draw, g.cooldownUntil - GS.now() + 50);
+    }
+    return head + `<h1>Hva er det?</h1><p>Se på hovedskjermen. Jo tidligere riktig, jo flere poeng!</p>
+      ${cooling ? `<p class="center big">Feil! Vent ${countdown(g.cooldownUntil)} s</p>` : ""}
+      ${textForm("bilde-input", "guess", "text", "Gjett her", "", { button: "Gjett", disabled: cooling })}`;
   }
 
   function questionButtons(q) {
@@ -546,7 +745,7 @@
     if (g.step === "guess") {
       const nums = Array.from({ length: g.max + 1 }, (_, i) =>
         `<button class="${g.myGuess === i ? "selected" : "secondary"}" data-send="${attr({ type: "round", data: { action: "guess", value: i } })}">${i}</button>`).join("");
-      return `${head}<h1>Hvor mange reiser seg?</h1><p>Gjett i hemmelighet (0–${g.max}). Du kan endre helt til timeren starter.</p>
+      return `${head}<h1>Hvor mange reiser seg? ${countdown(g.guessEndsAt)}</h1><p>Gjett i hemmelighet (0–${g.max}). Du kan endre helt til timeren starter.</p>
         <div class="num-grid">${nums}</div>
         ${g.myGuess !== null ? `<p class="center big">Din gjetning: ${g.myGuess}</p>` : ""}`;
     }
@@ -579,7 +778,8 @@
     let body = "";
     if (g.step === "talk") {
       body = `<p class="big">Snakk med ${esc(g.partnerName)} om strategien nå. Etter kastet er det forbudt å snakke!</p>
-        ${roundBtn("🎲 Kast terningene", "roll", {}, "huge-btn")}`;
+        ${roundBtn("🎲 Kast terningene", "roll", {}, "huge-btn")}
+        ${g.autoAt ? `<p class="center muted">Kastes automatisk om ${countdown(g.autoAt)} s</p>` : ""}`;
     } else if (g.step === "place") {
       const dice = g.dice.map(d => `<button class="die ${ui.dieId === d.id ? "selected" : ""}" data-ui="die" data-die="${d.id}">${d.v}</button>`).join("");
       if (!g.myTurn) {

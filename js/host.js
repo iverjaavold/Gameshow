@@ -1,13 +1,15 @@
 /*
-  Hovedskjermen. Viser poengtavle (søyler uten tall), rundeinfo og avsløringer,
-  og har knappene hosten bruker for å styre spillet.
+  Hovedskjermen. Viser poengtavle (søyler uten tall), rundeinfo og avsløringer.
+  Hosten skal gjøre minst mulig: bare «Start runde» og grønn/rød der et menneske må vurdere.
+  Alt annet går av seg selv. Manuelle overstyringer ligger bak «⋯».
 */
 
 (function() {
-  const { esc, attr, api, connect, countdown, render, figureSvg, gridHtml, store } = GS;
+  const { esc, attr, api, connect, countdown, render, figureSvg, gridHtml, store, lightsHtml, mineHtml } = GS;
   const params = new URLSearchParams(location.search);
   const code = (params.get("kode") || "").toUpperCase();
   const token = store(`gs-host-${code}`);
+  const SETUPS_KEY = "gs-oppsett";
 
   const els = {
     code: document.getElementById("code"),
@@ -17,7 +19,8 @@
     feed: document.getElementById("feed"),
     stage: document.getElementById("stage"),
     board: document.getElementById("board"),
-    controls: document.getElementById("controls")
+    controls: document.getElementById("controls"),
+    planner: document.getElementById("planner")
   };
 
   if (!code || !token) {
@@ -30,6 +33,7 @@
   let view = null;
   let seenFeed = 0;
   let showMenu = false;
+  let showPlanner = false;
 
   GS.startCountdowns();
   connect(code, token, v => {
@@ -57,28 +61,80 @@
     setTimeout(() => item.remove(), 6000);
   }
 
-  // Klikk på knapper med data-send='{"type":..,"data":..}'
+  // ---------- Klikk ----------
+
   document.addEventListener("click", e => {
     const btn = e.target.closest("[data-send]");
     if (btn) {
       const { type, data } = JSON.parse(btn.dataset.send);
       if (btn.dataset.confirm && !confirm(btn.dataset.confirm)) return;
+      if (btn.closest("#controls .menu")) showMenu = false;
       send(type, data || {});
       return;
     }
     if (e.target.closest("[data-menu]")) {
       showMenu = !showMenu;
       drawControls();
+      return;
+    }
+    if (e.target.closest("[data-planner]")) {
+      showPlanner = !showPlanner;
+      drawPlanner();
+      return;
+    }
+    const sel = e.target.closest("[data-select]");
+    if (sel) {
+      // I lobbyen: hele utvalget. Under spillet: spillene videre (spilte store runder kan ikke velges).
+      const inGame = view.phase !== "lobby";
+      const all = view.games.map(g => g.id).filter(id => !inGame || !view.upcoming.locked.includes(id));
+      send(inGame ? "setUpcoming" : "setSelection", { ids: sel.dataset.select === "all" ? all : [] });
+      return;
+    }
+    if (e.target.closest("[data-save-setup]")) {
+      const name = prompt("Navn på oppsettet:", "Mitt oppsett");
+      if (!name) return;
+      const setups = store(SETUPS_KEY) || {};
+      setups[name] = view.phase === "lobby" ? view.selection : view.upcoming.selected;
+      store(SETUPS_KEY, setups);
+      drawStage();
+      drawPlanner();
+      flashInfo(`Oppsettet «${name}» er lagret.`);
     }
   });
+
+  document.addEventListener("change", e => {
+    const box = e.target.closest("[data-pick]");
+    if (box) {
+      const id = box.dataset.pick;
+      const inGame = view.phase !== "lobby";
+      const set = new Set(inGame ? view.upcoming.selected : view.selection);
+      if (box.checked) set.add(id);
+      else set.delete(id);
+      send(inGame ? "setUpcoming" : "setSelection", { ids: [...set] });
+      return;
+    }
+    if (e.target.id === "setup-select" && e.target.value) {
+      const setups = store(SETUPS_KEY) || {};
+      const ids = setups[e.target.value];
+      if (ids) send(view.phase === "lobby" ? "setSelection" : "setUpcoming", { ids });
+    }
+  });
+
+  function flashInfo(text) {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.textContent = text;
+    els.feed.appendChild(item);
+    setTimeout(() => item.remove(), 4000);
+  }
 
   function button(label, type, data, cls = "", confirmText = "") {
     return `<button class="${cls}" data-send="${attr({ type, data })}" ${confirmText ? `data-confirm="${esc(confirmText)}"` : ""}>${esc(label)}</button>`;
   }
 
   function roundButton(a, cls = "") {
-    const { label, ...data } = a;
-    return button(label, "round", data, cls);
+    const { label, style, ...data } = a;
+    return button(label, "round", data, `${cls} ${style || ""} big-control`);
   }
 
   // ---------- Tegning ----------
@@ -86,12 +142,13 @@
   function draw() {
     if (!view) return;
     els.joinHint.innerHTML = view.joinOpen ? `Bli med på <b>${esc(joinUrl)}</b>` : "";
-    els.roundLabel.textContent = view.round ? `Runde ${view.round.number} av 10 · ${view.round.title}` : "Lobby";
+    els.roundLabel.textContent = view.round ? `Spill ${view.round.number} av ${view.round.total} · ${view.round.title}` : "Lobby";
     document.body.classList.toggle("compact", view.phase === "round");
     drawFeed();
     drawBoard();
     drawStage();
     drawControls();
+    drawPlanner();
   }
 
   function drawFeed() {
@@ -126,28 +183,41 @@
     render(els.board, html);
   }
 
+  // Knapper: bare det hosten MÅ trykke. Overstyringer ligger i menyen bak «⋯».
   function drawControls() {
     const buttons = [];
+    const menu = [];
     const p = view.phase;
+    let autoAt = view.autoAt;
+
     if (p === "lobby") {
-      buttons.push(button("Start spillet", "startGame", {}, "", ""));
+      buttons.push(button("Start spillet", "startGame", {}, "big-control"));
     } else if (p === "intro") {
-      buttons.push(button("Start runden", "startRound"));
+      buttons.push(button("Start runde", "startRound", {}, "big-control"));
     } else if (p === "betting") {
-      buttons.push(button("Lås innsatsene", "closeBetting"));
+      menu.push(button("Lås innsatsene nå", "closeBetting"));
     } else if (p === "buyTeammate") {
-      if (view.buy.step === "bidding") buttons.push(button("Avslutt budrunden", "closeBids"));
-      if (view.buy.step === "picking") buttons.push(button("Hopp over velger", "skipPicker", {}, "secondary"));
+      if (view.buy.step === "bidding") menu.push(button("Avslutt budrunden nå", "closeBids"));
+      if (view.buy.step === "picking") menu.push(button("Hopp over velger", "skipPicker"));
     } else if (p === "leaderPower") {
-      buttons.push(button("Hopp over lederens valg", "skipLeaderPower", {}, "secondary"));
+      menu.push(button("Hopp over lederens valg", "skipLeaderPower"));
     } else if (p === "roundEnd") {
-      buttons.push(button(view.round.number >= 10 ? "Vis resultatet" : "Fortsett", "continue"));
-    } else if (p === "round" && view.game && view.game.actions) {
-      view.game.actions.forEach(a => buttons.push(roundButton(a)));
-      buttons.push(`<button class="menu-toggle" data-menu="1">⋯</button>`);
-      if (showMenu) buttons.unshift(button("Avslutt runden", "endRound", {}, "bad", "Avslutte runden nå?"));
+      menu.push(button("Gå videre nå", "continue"));
+    } else if (p === "round" && view.game) {
+      autoAt = view.game.autoAt;
+      (view.game.actions || []).forEach(a => buttons.push(roundButton(a)));
+      (view.game.menu || []).forEach(a => menu.push(roundButton(a)));
+      menu.push(button("Avslutt runden", "endRound", {}, "bad", "Avslutte runden nå?"));
     }
-    render(els.controls, buttons.join(""));
+
+    const pill = autoAt ? `<span class="auto-pill">Går videre om ${countdown(autoAt)} s</span>` : "";
+    if (p !== "lobby" && p !== "results") {
+      buttons.unshift(`<button class="secondary planner-toggle" data-planner="1">📋 Velg spill videre</button>`);
+    }
+    const menuHtml = menu.length
+      ? `<div class="menu ${showMenu ? "" : "hidden"}">${menu.join("")}</div><button class="menu-toggle" data-menu="1" title="Manuelle valg">⋯</button>`
+      : "";
+    render(els.controls, pill + buttons.join("") + menuHtml);
   }
 
   function drawStage() {
@@ -169,34 +239,112 @@
   function stageLobby() {
     const figs = view.players.map(p => `
       <div class="lobby-fig">
-        ${figureSvg(p.figure, p.upgrades, { size: 90 })}
-        <span>${esc(p.name)}</span>
+        ${figureSvg(p.figure, p.upgrades, { size: 76 })}
+        <span>${esc(p.name)}${p.bot ? " 🤖" : ""}</span>
         <button class="kick secondary" data-send="${attr({ type: "kick", data: { playerId: p.id } })}" data-confirm="Fjerne ${esc(p.name)}?">✕</button>
       </div>`).join("");
-    return `
-      <div class="join-big">
-        <p class="muted" style="font-size:1.4em">Gå til <b style="color:white">${esc(joinUrl)}</b> på mobilen og skriv inn koden</p>
-        <div class="code">${esc(code)}</div>
+
+
+    return `<div class="lobby">
+      <div class="col lobby-left">
+        <div class="join-big">
+          <p class="muted" style="font-size:1.3em">Gå til <b style="color:white">${esc(joinUrl)}</b> på mobilen og skriv inn koden</p>
+          <div class="code">${esc(code)}</div>
+        </div>
+        <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>
+        <p class="center muted">${view.players.length} spiller${view.players.length === 1 ? "" : "e"} · minst ${view.minPlayers} for å starte</p>
+        <div class="center">${button("+ Legg til bot (testmodus)", "addBot", {}, "secondary small")}</div>
       </div>
-      <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>
-      <p class="center muted">${view.players.length} spiller${view.players.length === 1 ? "" : "e"} · minst ${view.minPlayers} for å starte</p>`;
+      <div class="panel col lobby-right">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Velg spill</h2>
+          <span class="tag yellow">ca. ${view.estimatedMinutes} min</span>
+        </div>
+        ${pickerButtons()}
+        <p class="muted" style="margin:0">Appen setter opp rekkefølgen selv. Finalen kommer alltid sist.</p>
+        ${gamePicker(view.selection, [])}
+      </div>
+    </div>`;
+  }
+
+  // Avkrysningsliste over spill (brukes i lobbyen og i menyen «Velg spill videre»)
+  function gamePicker(selectedIds, lockedIds) {
+    const selected = new Set(selectedIds);
+    const locked = new Set(lockedIds);
+    const list = big => view.games.filter(g => g.big === big).map(g => {
+      const isLocked = locked.has(g.id);
+      const on = selected.has(g.id);
+      return `<label class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
+        <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
+        <span class="grow"><b>${esc(g.title)}</b><small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
+        <span class="minutes">${g.minutes} min</span>
+      </label>`;
+    }).join("");
+    return `<div class="pick-scroll"><h3>Store runder</h3>${list(true)}<h3>Minirunder</h3>${list(false)}</div>`;
+  }
+
+  function pickerButtons() {
+    const setups = Object.keys(store(SETUPS_KEY) || {});
+    const setupSelect = setups.length
+      ? `<select id="setup-select"><option value="">Bruk et lagret oppsett …</option>${setups.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>`
+      : "";
+    return `<div class="row">
+      <button class="secondary small" data-select="all">Velg alle</button>
+      <button class="secondary small" data-select="none">Fjern alle</button>
+      <button class="secondary small" data-save-setup="1">Lagre oppsett</button>
+      ${setupSelect}
+    </div>`;
+  }
+
+  // Menyen «Velg spill videre» under spillet
+  function drawPlanner() {
+    const available = view && view.upcoming && view.phase !== "lobby" && view.phase !== "results";
+    if (!available || !showPlanner) {
+      els.planner.classList.add("hidden");
+      render(els.planner, "");
+      return;
+    }
+    els.planner.classList.remove("hidden");
+    const u = view.upcoming;
+    const next = view.plan.slice(view.round ? view.round.number : 0);
+    const order = next.length
+      ? `<div class="plan-strip" style="justify-content:flex-start">${next.map(g => `<span class="${g.mini ? "mini" : ""}">${esc(g.title)}</span>`).join("")}</div>`
+      : `<p class="muted">Ingen flere spill etter dette. Spillet avsluttes etterpå.</p>`;
+    render(els.planner, `<div class="panel col planner-panel">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Velg spill videre</h2>
+        <span class="tag yellow">ca. ${u.remainingMinutes} min igjen</span>
+        <button class="secondary small" data-planner="1">Lukk</button>
+      </div>
+      <p class="muted" style="margin:0">Gjelder spillene etter «${esc(view.round ? view.round.title : "")}». Endringer lagres med en gang, og appen setter opp rekkefølgen på nytt.</p>
+      ${pickerButtons()}
+      ${gamePicker(u.selected, u.locked)}
+      <div><b>Rekkefølgen videre:</b>${order}</div>
+    </div>`);
+  }
+
+  function planStrip() {
+    if (!view.plan || !view.plan.length) return "";
+    const current = view.round ? view.round.number - 1 : -1;
+    return `<div class="plan-strip">${view.plan.map((g, i) =>
+      `<span class="${i < current ? "done" : i === current ? "now" : ""} ${g.mini ? "mini" : ""}">${esc(g.title)}</span>`).join("")}</div>`;
   }
 
   function stageIntro() {
     const r = view.round;
     return `<div class="hero">
-      <div class="round-no">Runde ${r.number}</div>
+      <div class="round-no">Spill ${r.number} av ${r.total}${r.mini ? " · Minirunde" : ""}</div>
       <h1>${esc(r.title)}</h1>
       <span class="tag pink">${esc(r.tag)}</span>
       <ul class="rules">${r.rules.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
-    </div>`;
+    </div>${planStrip()}`;
   }
 
   function stageBetting() {
     return `<div class="hero">
       <div class="round-no">Bettingpause!</div>
       <h1>Sats poeng</h1>
-      <p style="font-size:1.4em">Sats i hemmelighet på mobilen – <b>før</b> dere vet hva neste runde går ut på.<br>
+      <p style="font-size:1.4em">Sats i hemmelighet på mobilen – <b>før</b> dere vet hva neste spill går ut på.<br>
       Gjør du det bra, vinner du innsatsen. Gjør du det dårlig, taper du den.</p>
       <p class="big-number">${view.betting.placed} / ${view.betting.total}</p>
       <p class="muted">har satset</p>
@@ -215,7 +363,7 @@
     const teams = b.teams.length
       ? `<div class="cards">${b.teams.map(t => `<div class="panel center"><b>${t.map(esc).join(" + ")}</b></div>`).join("")}</div>`
       : "";
-    return `<div class="hero"><div class="round-no">Før runde ${view.round.number}</div><h1>Kjøp en medspiller</h1>${body}</div>${teams}`;
+    return `<div class="hero"><div class="round-no">Før ${esc(view.round.title)}</div><h1>Kjøp en medspiller</h1>${body}</div>${teams}`;
   }
 
   function stageLeaderPower() {
@@ -223,7 +371,7 @@
       <div class="round-no">Lederens makt</div>
       <h1>Lederen bestemmer</h1>
       <p style="font-size:1.4em">${esc(view.leaderPower.prompt)} …</p>
-      <p class="muted">Valget tas i hemmelighet på lederens mobil. Går videre om ${countdown(view.leaderPower.endsAt)} s.</p>
+      <p class="muted">Valget tas i hemmelighet på lederens mobil.</p>
     </div>`;
   }
 
@@ -232,11 +380,11 @@
       ? `<ul class="rules">${view.summary.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`
       : "";
     return `<div class="hero">
-      <div class="round-no">Runde ${view.round.number} er ferdig</div>
+      <div class="round-no">Spill ${view.round.number} av ${view.round.total} er ferdig</div>
       <h1>${esc(view.round.title)}</h1>
       ${lines}
       <p class="muted" style="margin-top:20px">Søylene viser stillingen. Lederrente og catch-up er regnet ut i bakgrunnen.</p>
-    </div>`;
+    </div>${planStrip()}`;
   }
 
   function stageResults() {
@@ -270,9 +418,22 @@
       teamDuel: roundTeamDuel,
       alliance: roundAlliance,
       fight: roundFight,
-      final: roundFinal
+      final: roundFinal,
+      lyn: roundLyn,
+      dyr: roundDyr,
+      tretti: roundTretti,
+      tenk: roundTenk,
+      auksjon: roundAuksjon,
+      reaksjon: roundReaksjon,
+      estimat: roundEstimat,
+      gruva: roundGruva,
+      bilde: roundBilde
     }[g.type];
     return fn ? fn(g) : "";
+  }
+
+  function title(text, sub = "") {
+    return `<div class="hero"><div class="round-no">${sub}</div><h1 class="mid-title">${esc(text)}</h1></div>`;
   }
 
   function questionBlock(q, opts = {}) {
@@ -295,11 +456,10 @@
     if (g.question.revealed) {
       if (g.event) info = `<div class="event">${esc(g.event)}</div>`;
       if (g.fastest) info += `<p class="center muted">Raskest: ${esc(g.fastest.name)} (${g.fastest.seconds} s)</p>`;
-      if (g.correctNames) info += `<p class="center">${g.correctNames.length ? `Riktig: ${g.correctNames.map(esc).join(", ")}` : "Ingen svarte riktig."}</p>`;
     } else {
       info = `<p class="center muted">${g.answered} / ${g.totalPlayers} har svart${g.kingName ? ` · Konge: <b style="color:var(--yellow)">${esc(g.kingName)}</b>` : ""}</p>`;
     }
-    return `<div class="col" style="gap:18px">${questionBlock(g.question, { counter: `${g.index}/${g.total}`, banner: g.banner })}${info}</div>`;
+    return `<div class="col" style="gap:18px">${questionBlock(g.question, { counter: `${g.index}/${g.total}` })}${info}</div>`;
   }
 
   function roundStand(g) {
@@ -318,16 +478,16 @@
           <td>${r.hit === "exact" ? "🎯 Riktig!" : r.hit === "close" ? "Én unna" : ""}</td>
         </tr>`).join("");
       body = `<p style="font-size:1.6em">REIS DERE NÅ!</p>
-        <div class="big-number" style="font-size:9rem">${g.result.standing}</div>
+        <div class="big-number" style="font-size:7rem">${g.result.standing}</div>
         <p class="muted">reiste seg</p>
         <table class="reveal-table"><tr><th>Spiller</th><th>Gjetning</th><th>Valg</th><th></th></tr>${rows}</table>`;
     }
-    return `<div class="hero"><div class="round-no">Omgang ${g.index} av ${g.total}</div><h1>Hvor mange reiser seg?</h1>${body}</div>`;
+    return `<div class="hero"><div class="round-no">Omgang ${g.index} av ${g.total}</div><h1 class="mid-title">Hvor mange reiser seg?</h1>${body}</div>`;
   }
 
-  function vaultSlot(title, values, rule) {
+  function vaultSlot(name, values, rule) {
     const dice = values.map(v => `<div class="die ${v === null ? "empty" : ""}">${v === null ? "?" : v}</div>`).join(" ");
-    return `<div class="slot-box"><h3>${esc(title)}</h3><div class="row" style="justify-content:center">${dice}</div><div class="rule">${esc(rule)}</div></div>`;
+    return `<div class="slot-box"><h3>${esc(name)}</h3><div class="row" style="justify-content:center">${dice}</div><div class="rule">${esc(rule)}</div></div>`;
   }
 
   function roundVault(g) {
@@ -366,7 +526,6 @@
       </div>
       <p class="center" style="font-size:1.3em">${stepText}</p>
       ${g.event ? `<div class="event">${esc(g.event)}</div>` : ""}
-      ${g.autoAt ? `<p class="center muted">Går videre om ${countdown(g.autoAt)} s</p>` : ""}
       ${g.upcoming.length ? `<p class="center muted">Neste: ${g.upcoming.map(n => n.map(esc).join(" og ")).join(" · ")}</p>` : ""}
       ${results}`;
   }
@@ -387,7 +546,7 @@
         <p class="event" style="font-size:1.2em;min-height:1.4em">${fb}</p>
       </div>`;
     }).join("");
-    return `<div class="hero"><h1 style="font-size:3rem">Tegn etter beskrivelse</h1>
+    return `<div class="hero"><h1 class="mid-title">Tegn etter beskrivelse</h1>
       <p>Forklar med ord – ikke vis skjermen!</p></div>
       <div class="cards">${cards}</div>`;
   }
@@ -404,7 +563,8 @@
       </div>`).join("");
     let body;
     if (g.step === "ready") {
-      body = `<p style="font-size:1.5em">Lag ${g.currentTeam + 1} sin tur! Forklarer: <b>${esc(g.explainerName)}</b> · Mimer: <b>${esc(g.mimerName)}</b></p>`;
+      body = `<p style="font-size:1.5em">Lag ${g.currentTeam + 1} sin tur! Forklarer: <b>${esc(g.explainerName)}</b> · Mimer: <b>${esc(g.mimerName)}</b></p>
+        <p class="muted">Forklareren starter turen på mobilen.</p>`;
     } else if (g.step === "playing") {
       body = `<div class="big-number" style="font-size:8rem">${countdown(g.endsAt)}</div>
         <p style="font-size:1.4em">Forklarer: <b>${esc(g.explainerName)}</b> · Mimer: <b>${esc(g.mimerName)}</b> · ${g.wordsThisTurn} ord</p>`;
@@ -462,7 +622,7 @@
         <div class="round-no">Allianse eller svik?</div>
         <h1>Del eller ta alt selv</h1>
         <p style="font-size:1.4em">Velg i hemmelighet på mobilen.</p>
-        <p class="big-number">${g.chosen} / ${g.totalPlayers}</p><p class="muted">har valgt · ${countdown(g.endsAt)} s</p>
+        <p class="big-number">${g.chosen} / ${g.totalPlayers}</p><p class="muted">har valgt</p>
       </div>`;
     }
     const cards = g.outcomes.map(o => `<div class="panel center">
@@ -523,6 +683,166 @@
         ${fig(b, choices[1])}
       </div>
       <div class="col" style="gap:14px">${middle}</div>`;
+  }
+
+  // ---------- Lynrunden ----------
+
+  function roundLyn(g) {
+    const head = `<div class="round-no center">Spørsmål ${g.index} av ${g.total}</div>`;
+    if (g.step === "countdown") {
+      return `<div class="hero"><div class="round-no">Lynrunden</div><h1>Gjør dere klare!</h1>
+        <div class="big-number" style="font-size:10rem">${countdown(g.countdownEndsAt)}</div>
+        <p style="font-size:1.4em">Første på den røde buzzeren svarer høyt.</p></div>`;
+    }
+    let body = "";
+    if (g.step === "question") {
+      body = `<p class="center" style="font-size:1.6em">🔴 Trykk på buzzeren! ${countdown(g.buzzEndsAt)}</p>`;
+    } else if (g.step === "answering") {
+      body = `<div class="row" style="justify-content:center;gap:24px">
+          ${figureSvg(g.buzzer.figure, g.buzzer.upgrades, { size: 110 })}
+          <div><div class="event" style="font-size:2.4em">${esc(g.buzzer.name)} svarer!</div>
+          <div class="big-number">${countdown(g.answerEndsAt)}</div></div>
+        </div>
+        <p class="center"><span class="spoiler" title="Hold musen over for å se fasiten">Fasit: ${esc(g.answer)}</span></p>`;
+    } else {
+      body = `<div class="event">${esc(g.result || "")}</div><p class="center" style="font-size:1.6em">Svar: <b>${esc(g.answer)}</b></p>`;
+    }
+    return `${head}<div class="quiz-q lyn-q">${esc(g.question)}</div>${body}`;
+  }
+
+  // ---------- Minirunder ----------
+
+  function progress(done, total, word) {
+    return `<p class="center muted" style="font-size:1.2em">${done} / ${total} ${word}</p>`;
+  }
+
+  function resultTable(headers, rows) {
+    return `<table class="reveal-table"><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
+  }
+
+  function roundDyr(g) {
+    const list = `<div class="animal-list">${g.items.map(it => `<span>${esc(it.label)}</span>`).join("")}</div>`;
+    if (g.step === "write") {
+      return title("Hvem er hvilket dyr?", "Minirunde") +
+        `<p class="center" style="font-size:1.5em">Skriv et dyr i hemmelighet på mobilen. ${countdown(g.endsAt)}</p>` + progress(g.written, g.totalPlayers, "har skrevet");
+    }
+    if (g.step === "show") {
+      return title("Her er dyrene!", "Ett av dem er falskt") + list +
+        `<p class="center muted">Koblingen starter om ${countdown(g.endsAt)} s. Se godt på listen!</p>`;
+    }
+    if (g.step === "match") {
+      return title("Hvem skrev hva?", "Koble på mobilen") + list +
+        `<p class="center">${countdown(g.endsAt)} s</p>` + progress(g.matched, g.totalPlayers, "er ferdige");
+    }
+    const answers = g.answers.map(a => `<div class="panel center ${a.decoy ? "decoy" : ""}">
+        <b style="font-size:1.4em">${esc(a.label)}</b>
+        <p>${a.decoy ? "🎭 Ekstra dyr – ingen skrev dette!" : a.names.map(esc).join(", ")}</p>
+      </div>`).join("");
+    const scores = g.scores.map(s => `${esc(s.name)}: ${s.correct} riktige`).join(" · ");
+    return title("Fasit!", "Hvem er hvilket dyr?") + `<div class="cards">${answers}</div><p class="center" style="font-size:1.2em">${scores}</p>`;
+  }
+
+  function roundTretti(g) {
+    if (g.step === "running") {
+      return `<div class="hero"><div class="big-number now-big">NÅ!</div>
+        <p style="font-size:1.6em">Trykk på mobilen når du tror det har gått nøyaktig 30 sekunder.</p>
+        <p class="muted">Ingen klokke. Ingen hjelp. Lykke til!</p></div>`;
+    }
+    const rows = g.rows.map(r => [`<b>${esc(r.name)}</b>`, r.seconds === null ? "Trykket ikke" : `${r.seconds} s`, `${r.off} s unna`, r.points ? `${r.points}` : "0"]);
+    return title("Hvor nær kom dere?", "Gjett 30 sekunder") + resultTable(["Spiller", "Tid", "Bom", "Poeng"], rows);
+  }
+
+  function roundTenk(g) {
+    const head = `<div class="hero"><div class="round-no">Tenk likt · ${g.index} av ${g.total}</div><h1 class="mid-title">${esc(g.prompt)}</h1></div>`;
+    if (g.step === "answer") {
+      return head + `<p class="center" style="font-size:1.4em">Skriv det du tror FLEST andre skriver! ${countdown(g.endsAt)}</p>` + progress(g.answered, g.totalPlayers, "har svart");
+    }
+    const groups = g.groups.map(gr => `<div class="panel center ${gr.count > 1 ? "match" : ""}">
+        <b style="font-size:1.5em">${esc(gr.label)}</b>
+        <p>${gr.names.map(esc).join(", ")}</p>
+        ${gr.count > 1 ? `<span class="tag yellow">+${(gr.count - 1) * 100} hver</span>` : ""}
+      </div>`).join("");
+    return head + `<div class="cards">${groups || `<p class="center muted">Ingen svarte.</p>`}</div>`;
+  }
+
+  function roundAuksjon(g) {
+    if (g.step === "bid") {
+      return `<div class="hero"><div class="round-no">Auksjonen</div>
+        <div class="gift">🎁</div>
+        <h1 class="mid-title">En hemmelig pakke</h1>
+        <p style="font-size:1.4em">Poeng eller et kort fra shopen – alltid noe positivt. By i hemmelighet på mobilen!</p>
+        <div class="big-number">${countdown(g.endsAt)}</div>
+        ${progress(g.bidsPlaced, g.totalPlayers, "har budt")}</div>`;
+    }
+    return `<div class="hero"><div class="gift">🔨</div><h1 class="mid-title">Auksjonen er avgjort!</h1>
+      <p class="muted" style="font-size:1.3em">Hvem som vant og hva pakken inneholdt, er hemmelig.</p></div>`;
+  }
+
+  function roundReaksjon(g) {
+    if (g.step === "running") {
+      return `<div class="hero"><div class="round-no">Reaksjonstest</div>
+        ${lightsHtml(g.timing)}
+        <p style="font-size:1.6em">Trykk på mobilen når lysene slukker!</p>
+        <p class="muted">Tyvstart gir −100 poeng.</p></div>`;
+    }
+    const rows = g.rows.map((r, i) => [
+      r.falseStart ? "–" : r.ms === null ? "–" : `${i + 1}.`,
+      `<b>${esc(r.name)}</b>`,
+      r.falseStart ? "TYVSTART" : r.ms === null ? "Trykket ikke" : `${r.ms} ms`,
+      r.points ? `${r.points > 0 ? "+" : ""}${r.points}` : ""
+    ]);
+    return title("Reaksjonstider", "Reaksjonstest") + resultTable(["", "Spiller", "Tid", "Poeng"], rows);
+  }
+
+  function roundEstimat(g) {
+    const head = `<div class="hero"><div class="round-no">Estimering · ${g.index} av ${g.total}</div>
+      <h1 class="mid-title">${esc(g.question)}</h1><span class="tag pink">Svar i ${esc(g.unit)}</span></div>`;
+    if (g.step === "answer") {
+      return head + `<div class="big-number center">${countdown(g.endsAt)}</div>` + progress(g.answered, g.totalPlayers, "har svart");
+    }
+    const rows = g.rows.map(r => [`${r.place}.`, `<b>${esc(r.name)}</b>`, formatNumber(r.value), r.points ? `+${r.points}` : ""]);
+    return head + `<p class="center" style="font-size:1.6em">Fasit: <b style="color:var(--yellow)">${formatNumber(g.answer)} ${esc(g.unit)}</b></p>` +
+      (rows.length ? resultTable(["", "Spiller", "Gjetning", "Poeng"], rows) : `<p class="center muted">Ingen svarte.</p>`);
+  }
+
+  function formatNumber(n) {
+    return Number(n).toLocaleString("nb-NO");
+  }
+
+  function roundGruva(g) {
+    const inside = g.players.filter(p => !p.out);
+    const outside = g.players.filter(p => p.out);
+    const figs = list => list.map(p => `<div class="col" style="align-items:center;gap:2px">${figureSvg(p.figure, p.upgrades, { size: 56 })}<small>${esc(p.name)}</small></div>`).join("");
+    let top;
+    if (g.step === "running") {
+      top = `<div class="mine-big">${mineHtml(g)}</div><p class="center" style="font-size:1.3em">Trykk «Ta poengene» på mobilen før gruva raser!</p>`;
+    } else if (g.crashed) {
+      top = `<div class="mine-big crash">RAS! −500</div><p class="center" style="font-size:1.3em">Gruva raste etter ${g.crashSeconds} sekunder.</p>`;
+    } else {
+      top = `<div class="mine-big">Alle kom seg ut!</div><p class="center" style="font-size:1.3em">Gruva ville rast etter ${g.crashSeconds} sekunder.</p>`;
+    }
+    return `<div class="round-no center">Gruva</div>${top}
+      <div class="teams">
+        <div class="team ${g.step === "running" ? "active" : ""}"><h2>⛏️ I gruva</h2><div class="figs">${figs(inside) || `<span class="muted">Tom</span>`}</div></div>
+        <div class="team"><h2>☀️ Ute</h2><div class="figs">${figs(outside) || `<span class="muted">Ingen ennå</span>`}</div></div>
+      </div>`;
+  }
+
+  function roundBilde(g) {
+    const img = g.image.src
+      ? `<img src="${esc(g.image.src)}" alt="">`
+      : `<span class="zoom-emoji">${g.image.emoji}</span>`;
+    const done = g.step === "reveal" ? `data-done="1"` : "";
+    const figs = g.players.map(p => `<div class="col zoom-player" style="align-items:center;gap:2px">
+        ${figureSvg(p.figure, p.upgrades, { size: 46 })}<small>${esc(p.name)}</small>${p.solved ? `<span class="check">✓</span>` : ""}
+      </div>`).join("");
+    return `<div class="round-no center">Bildezoom · ${g.index} av ${g.total} ${g.step === "zoom" ? `· ${countdown(g.endsAt)} s` : ""}</div>
+      <div class="zoom-frame">
+        <div class="zoom-inner" data-zoom data-start="${g.startedAt}" data-dur="${g.zoomMs}" data-z="${g.startZoom}" ${done}
+          style="transform-origin:${g.focus.x}% ${g.focus.y}%">${img}</div>
+      </div>
+      ${g.step === "reveal" ? `<div class="event" style="font-size:2em">Det var: ${esc(g.answer)}!</div>` : `<p class="center">Gjett på mobilen – jo tidligere, jo flere poeng!</p>`}
+      <div class="row" style="justify-content:center;gap:14px">${figs}</div>`;
   }
 
   window.addEventListener("resize", () => view && drawBoard());

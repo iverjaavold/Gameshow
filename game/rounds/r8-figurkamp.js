@@ -4,7 +4,7 @@
     Angrip mot angrip: begge tar skade (terning + angrep − motstanderens forsvar, minst 1).
     Angrip mot forsvar: skade = angrepskast − forsvarskast. Blokkeres alt, får angriperen motangrep.
     Forsvar mot forsvar: begge får 1 liv tilbake.
-  Sverd gir angrep, skjold gir forsvar. Mest liv etter siste runde vinner.
+  Sverd gir angrep, skjold gir forsvar. Mest liv etter siste runde vinner. Alt går av seg selv.
 */
 
 const config = require("../config");
@@ -12,7 +12,6 @@ const { Round, GameError } = require("./base");
 const { rollDie, pick } = require("../util");
 
 const C = config.R8;
-const RESULT_SECONDS = 4;
 
 class FightRound extends Round {
   start() {
@@ -56,28 +55,30 @@ class FightRound extends Round {
     this.exchange++;
     this.step = "choose";
     this.choices.clear();
-    this.endsAt = Date.now() + C.CHOICE_SECONDS * 1000;
-    this.stepTimer = this.timer(() => this.resolve(), C.CHOICE_SECONDS * 1000);
+    this.auto(() => this.resolve(), C.CHOICE_SECONDS);
     this.changed();
   }
 
   resolve() {
     if (this.step !== "choose") return;
-    this.clearTimer(this.stepTimer);
     this.step = "result";
     this.duels.filter(d => !d.done).forEach(duel => this.resolveDuel(duel));
 
     if (this.duels.every(d => d.done)) {
       this.step = "done";
-      this.duels.forEach(d => {
-        if (!d.noPoints.includes(d.winner)) this.game.award(d.winner, C.WIN_POINTS);
-        this.lines.push(`${this.name(d.winner)} vant mot ${this.name(d.fighters.find(f => f.id !== d.winner).id)}!`);
-      });
+      this.awardWinners();
+      this.auto(() => this.finish(), C.RESULT_SECONDS * 2);
     } else {
-      this.endsAt = Date.now() + RESULT_SECONDS * 1000;
-      this.stepTimer = this.timer(() => this.nextExchange(), RESULT_SECONDS * 1000);
+      this.auto(() => this.nextExchange(), C.RESULT_SECONDS);
     }
     this.changed();
+  }
+
+  awardWinners() {
+    this.duels.forEach(d => {
+      if (!d.noPoints.includes(d.winner)) this.game.award(d.winner, C.WIN_POINTS);
+      this.lines.push(`${this.name(d.winner)} vant mot ${this.name(d.fighters.find(f => f.id !== d.winner).id)}!`);
+    });
   }
 
   resolveDuel(duel) {
@@ -113,8 +114,7 @@ class FightRound extends Round {
 
     if (a.hp <= 0 || b.hp <= 0 || this.exchange >= C.EXCHANGES) {
       duel.done = true;
-      if (a.hp === b.hp) duel.winner = pick([a.id, b.id]);
-      else duel.winner = a.hp > b.hp ? a.id : b.id;
+      duel.winner = winnerOf(a, b);
     }
   }
 
@@ -122,13 +122,10 @@ class FightRound extends Round {
     if (this.step !== "done") {
       // Avbrutt: den med mest liv vinner hver uferdige duell.
       this.duels.filter(d => !d.done).forEach(d => {
-        const [a, b] = d.fighters;
         d.done = true;
-        d.winner = a.hp === b.hp ? pick([a.id, b.id]) : a.hp > b.hp ? a.id : b.id;
+        d.winner = winnerOf(d.fighters[0], d.fighters[1]);
       });
-      this.duels.forEach(d => {
-        if (!d.noPoints.includes(d.winner)) this.game.award(d.winner, C.WIN_POINTS);
-      });
+      this.awardWinners();
     }
     this.finish();
   }
@@ -137,10 +134,7 @@ class FightRound extends Round {
     if (action === "resolve") return this.resolve();
     if (action === "next") {
       if (this.step === "done") return this.finish();
-      if (this.step === "result") {
-        this.clearTimer(this.stepTimer);
-        return this.nextExchange();
-      }
+      if (this.step === "result") return this.nextExchange();
       return this.resolve();
     }
     return super.hostAction(action);
@@ -156,6 +150,12 @@ class FightRound extends Round {
     this.changed();
   }
 
+  botAct(bot) {
+    if (this.step === "choose" && !this.choices.has(bot.id) && this.activeFighterIds().includes(bot.id) && this.chance(0.4)) {
+      this.playerAction(bot, "choose", { choice: this.chance(0.6) ? "attack" : "defend" });
+    }
+  }
+
   duelView(d) {
     return {
       fighters: d.fighters.map(f => ({ ...this.publicPlayer(f.id), hp: f.hp, maxHp: C.HP, atk: f.atk, def: f.def })),
@@ -167,20 +167,20 @@ class FightRound extends Round {
 
   hostView() {
     const active = this.activeFighterIds();
-    const actions = [];
-    if (this.step === "choose") actions.push({ action: "resolve", label: "Avgjør nå" });
-    if (this.step === "result") actions.push({ action: "next", label: "Neste slag" });
-    if (this.step === "done") actions.push({ action: "next", label: "Avslutt runden" });
+    const menu = [];
+    if (this.step === "choose") menu.push({ action: "resolve", label: "Avgjør nå" });
+    else menu.push({ action: "next", label: "Gå videre nå" });
     return {
       type: "fight",
       step: this.step,
       exchange: this.exchange,
       exchanges: C.EXCHANGES,
-      endsAt: this.step === "done" ? null : this.endsAt,
+      endsAt: this.step === "choose" ? this.autoAt : null,
       chosen: active.filter(id => this.choices.has(id)).length,
       totalFighters: active.length,
       duels: this.duels.map(d => this.duelView(d)),
-      actions
+      actions: [],
+      menu
     };
   }
 
@@ -192,13 +192,18 @@ class FightRound extends Round {
       step: this.step,
       exchange: this.exchange,
       exchanges: C.EXCHANGES,
-      endsAt: this.step === "done" ? null : this.endsAt,
+      endsAt: this.step === "choose" ? this.autoAt : null,
       active,
       myChoice: this.choices.get(player.id) || null,
       duels: mine.map(d => this.duelView(d)),
       myId: player.id
     };
   }
+}
+
+function winnerOf(a, b) {
+  if (a.hp === b.hp) return pick([a.id, b.id]);
+  return a.hp > b.hp ? a.id : b.id;
 }
 
 module.exports = FightRound;

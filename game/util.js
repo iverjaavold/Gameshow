@@ -1,7 +1,19 @@
 const crypto = require("crypto");
 
+// Alle tider i spillet går gjennom ms(), så tester kan kjøre spillet raskere
+// (sett miljøvariabelen GAMESHOW_TIME_SCALE, f.eks. 0.02). Vanlig spill: 1.
+const TIME_SCALE = Number(process.env.GAMESHOW_TIME_SCALE) || 1;
+
+function ms(seconds) {
+  return Math.round(seconds * 1000 * TIME_SCALE);
+}
+
 function randInt(min, max) {
   return min + crypto.randomInt(max - min + 1);
+}
+
+function randFloat(min, max) {
+  return min + Math.random() * (max - min);
 }
 
 function shuffle(list) {
@@ -27,4 +39,4 @@ function rollDie() {
 
 class GameError extends Error {}
 
-module.exports = { randInt, shuffle, pick, token, rollDie, GameError };
+module.exports = { TIME_SCALE, ms, randInt, randFloat, shuffle, pick, token, rollDie, GameError };

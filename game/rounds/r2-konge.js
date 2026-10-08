@@ -1,6 +1,7 @@
 /*
   Runde 2 – Kongen på haugen.
   Raskest og riktig blir konge. Kongen får bonus for hvert spørsmål tronen holdes.
+  Spørsmålene avsløres og går videre av seg selv.
 */
 
 const config = require("../config");
@@ -21,13 +22,12 @@ class KingRound extends Round {
     this.index++;
     this.event = null;
     this.quiz = new QuizQuestion(this.game, this.options.leaderChoice, C.QUESTION_SECONDS);
-    this.questionTimer = this.timer(() => this.reveal(), C.QUESTION_SECONDS * 1000);
+    this.auto(() => this.reveal(), C.QUESTION_SECONDS);
     this.changed();
   }
 
   reveal() {
     if (this.quiz.revealed) return;
-    this.clearTimer(this.questionTimer);
     this.quiz.revealed = true;
 
     const correct = this.quiz.correctInOrder();
@@ -50,24 +50,33 @@ class KingRound extends Round {
     }
     this.fastest = fastest ? { name: this.name(fastest.id), seconds: (fastest.ms / 1000).toFixed(1) } : null;
     this.game.crownId = this.kingId;
+    this.auto(() => this.next(), C.REVEAL_SECONDS);
     this.changed();
+  }
+
+  next() {
+    if (!this.quiz.revealed) return this.reveal();
+    if (this.index >= C.QUESTIONS) return this.finish();
+    return this.nextQuestion();
   }
 
   hostAction(action) {
     if (action === "reveal") return this.reveal();
-    if (action === "next") {
-      if (!this.quiz.revealed) return this.reveal();
-      if (this.index >= C.QUESTIONS) return this.finish();
-      return this.nextQuestion();
-    }
+    if (action === "next") return this.next();
     return super.hostAction(action);
   }
 
   playerAction(player, action, data) {
     if (action !== "answer") return super.playerAction(player, action);
     if (this.quiz.answer(player.id, data.choice)) {
-      if (this.activeParticipants().every(id => this.quiz.answers.has(id))) this.reveal();
+      if (this.allIn(this.quiz.answers)) this.reveal();
       this.changed();
+    }
+  }
+
+  botAct(bot) {
+    if (!this.quiz.revealed && !this.quiz.answers.has(bot.id) && this.chance(0.35)) {
+      this.playerAction(bot, "answer", { choice: this.quiz.revealed ? 0 : botChoice(this.quiz) });
     }
   }
 
@@ -87,9 +96,8 @@ class KingRound extends Round {
       kingName: this.kingId ? this.name(this.kingId) : null,
       event: revealed ? this.event : null,
       fastest: revealed ? this.fastest : null,
-      actions: revealed
-        ? [{ action: "next", label: this.index >= C.QUESTIONS ? "Avslutt runden" : "Neste spørsmål" }]
-        : [{ action: "reveal", label: "Avslør nå" }]
+      actions: [],
+      menu: [revealed ? { action: "next", label: "Neste spørsmål nå" } : { action: "reveal", label: "Avslør nå" }]
     };
   }
 
@@ -105,4 +113,10 @@ class KingRound extends Round {
   }
 }
 
+// Bots svarer riktig av og til
+function botChoice(quiz) {
+  return Math.random() < 0.4 ? quiz.q.correct : Math.floor(Math.random() * 4);
+}
+
 module.exports = KingRound;
+module.exports.botChoice = botChoice;

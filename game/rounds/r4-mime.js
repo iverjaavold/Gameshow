@@ -34,6 +34,8 @@ class MimeRound extends Round {
     };
     this.step = "ready";
     this.word = null;
+    // Trykker ikke forklareren «Start», starter turen av seg selv.
+    this.auto(() => this.startTurn(), C.READY_SECONDS);
     this.changed();
   }
 
@@ -53,10 +55,11 @@ class MimeRound extends Round {
 
   startTurn() {
     if (this.step !== "ready") throw new GameError("Turen er allerede i gang.");
+    this.cancelAuto();
     this.step = "playing";
-    this.endsAt = Date.now() + C.TURN_SECONDS * 1000;
+    this.endsAt = this.at(C.TURN_SECONDS);
     this.drawWord();
-    this.turnTimer = this.timer(() => this.endTurn(), C.TURN_SECONDS * 1000);
+    this.turnTimer = this.timer(() => this.endTurn(), C.TURN_SECONDS);
     this.changed();
   }
 
@@ -87,8 +90,18 @@ class MimeRound extends Round {
     if (this.step === "done") {
       const [a, b] = this.teamWords;
       this.lines = [a === b ? `Uavgjort: ${a} ord hver!` : `Lag ${a > b ? 1 : 2} vant med ${Math.max(a, b)} mot ${Math.min(a, b)} ord!`];
+      this.auto(() => this.finish(), C.BETWEEN_TURNS_SECONDS);
+    } else {
+      this.auto(() => this.setupTurn(), C.BETWEEN_TURNS_SECONDS);
     }
     this.changed();
+  }
+
+  // Testmodus: bot-forklareren starter og trykker «Riktig» innimellom.
+  botAct(bot) {
+    if (bot.id !== this.current.explainer) return;
+    if (this.step === "ready" && this.chance(0.3)) return this.startTurn();
+    if (this.step === "playing" && this.chance(0.1)) return this.chance(0.7) ? this.correct() : this.skip();
   }
 
   hostAction(action) {
@@ -97,6 +110,7 @@ class MimeRound extends Round {
     if (action === "skip") return this.skip();
     if (action === "endTurn") return this.endTurn();
     if (action === "next") {
+      this.cancelAuto();
       if (this.step === "turnOver") return this.setupTurn();
       if (this.step === "done") return this.finish();
       return;
@@ -113,16 +127,18 @@ class MimeRound extends Round {
   }
 
   hostView() {
+    // Hosten har bare grønn/rød når et ord må vurderes. Resten skjer av seg selv.
     const actions = [];
-    if (this.step === "ready") actions.push({ action: "startTurn", label: "Start turen" });
+    const menu = [];
     if (this.step === "playing") {
-      actions.push({ action: "correct", label: "Riktig" });
-      actions.push({ action: "skip", label: "Hopp over" });
-      actions.push({ action: "endTurn", label: "Stopp turen" });
+      actions.push({ action: "correct", label: "Riktig", style: "good" });
+      actions.push({ action: "skip", label: "Hopp over", style: "bad" });
+      menu.push({ action: "endTurn", label: "Stopp turen" });
     }
-    if (this.step === "turnOver") actions.push({ action: "next", label: "Neste tur" });
-    if (this.step === "done") actions.push({ action: "next", label: "Avslutt runden" });
+    if (this.step === "ready") menu.push({ action: "startTurn", label: "Start turen nå" });
+    if (this.step === "turnOver" || this.step === "done") menu.push({ action: "next", label: "Gå videre nå" });
     return {
+      menu,
       type: "mime",
       step: this.step,
       teams: this.teams.map(t => t.map(id => this.publicPlayer(id))),

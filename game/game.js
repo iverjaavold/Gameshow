@@ -1,13 +1,17 @@
 /*
   Spillmotor. All tilstand ligger her på serveren.
   Klientene får bare en «visning» bygget for akkurat dem (hostView / playerView).
+
+  Spillet er en «plan»: en liste med valgte spill (store runder og minirunder) i rekkefølge.
+  Appen går videre av seg selv mellom fasene. Hosten trykker bare «Start runde»
+  (og grønn/rød der et menneske må vurdere et svar).
 */
 
 const config = require("./config");
 const Randomizer = require("./randomizer");
-const { pick, shuffle, token, GameError } = require("./util");
-const { ROUNDS, ROUND_INFO, leaderPowerFor } = require("./rounds");
-
+const { pick, shuffle, token, ms, randInt, GameError } = require("./util");
+const { GAMES, ALL_IDS, leaderPowerFor, roundClass } = require("./rounds");
+const plan = require("./plan");
 
 let nextId = 1;
 
@@ -20,15 +24,21 @@ class Game {
 
     this.players = new Map(); // id -> spiller
     this.phase = "lobby"; // lobby | betting | buyTeammate | leaderPower | intro | round | roundEnd | results
-    this.roundNumber = 0;
     this.round = null;
     this.roundSummary = [];
     this.joinOpen = true;
     this.shopOpen = true;
 
+    // Valgte spill og rekkefølge
+    this.selection = ALL_IDS.slice();
+    this.plan = [];
+    this.index = -1;
+    this.limits = { joinCloseIndex: Infinity, shopCloseIndex: Infinity };
+
     this.randomizer = new Randomizer();
     this.usedQuestions = new Set();
     this.usedWords = new Set();
+    this.usedContent = new Set(); // innhold brukt i minirunder
     this.crownId = null; // kun runde 2
 
     this.feed = []; // meldinger på hovedskjermen
@@ -36,22 +46,31 @@ class Game {
     this.roundTimers = new Set();
     this.broadcastQueued = false;
 
+    // Automatikk mellom fasene
+    this.phaseTimer = null;
+    this.phaseAutoAt = null;
+
     // Betting
-    this.bettingRound = pick(config.BETTING_ROUND_CANDIDATES);
+    this.bettingIndex = -1;
     this.bets = new Map(); // playerId -> innsats
     this.bettingDone = false;
 
     // Kjøp en medspiller
+    this.buyIndex = -1;
     this.buy = null;
     this.buyDone = false;
     this.fixedTeams = [];
 
     // Lederens makt
-    this.leaderPower = null; // { round, leaderId, def }
-    this.leaderChoices = {}; // runde -> valg
+    this.leaderPower = null; // { index, leaderId, def, endsAt }
+    this.leaderChoices = {}; // plan-indeks -> valg
 
     // Tyveri
     this.theft = null; // { thiefId, victimId, value, endsAt, timer }
+
+    // Testmodus
+    this.botTimer = null;
+    this.botCount = 0;
   }
 
   // ---------- Spillere ----------
@@ -68,13 +87,13 @@ class Game {
     return this.playerList.find(p => p.token === t);
   }
 
-  join(name, figure) {
+  join(name, figure, opts = {}) {
     name = String(name || "").trim().slice(0, config.MAX_NAME_LENGTH);
     if (!name) throw new GameError("Skriv inn et navn.");
 
     const existing = this.playerList.find(p => p.name.toLowerCase() === name.toLowerCase());
     if (existing) {
-      if (existing.connections > 0) throw new GameError("Navnet er allerede i bruk.");
+      if (existing.connections > 0 || existing.bot) throw new GameError("Navnet er allerede i bruk.");
       // Gjenoppkobling: samme kode + samme navn gir samme spiller.
       return existing;
     }
@@ -93,6 +112,7 @@ class Game {
       figure: sanitizeFigure(figure),
       score,
       connections: 0,
+      bot: !!opts.bot,
       inventory: [],
       upgrades: { sword: 0, shield: 0, star: 0 },
       catchUp: 0,
@@ -104,6 +124,15 @@ class Game {
     if (this.phase !== "lobby") this.addFeed(`${name} ble med i spillet!`);
     this.changed();
     return player;
+  }
+
+  addBot() {
+    this.botCount++;
+    const figure = {};
+    Object.entries(FIGURE_OPTIONS).forEach(([key, options]) => { figure[key] = pick(options); });
+    const bot = this.join(`Bot ${this.botCount}`, figure, { bot: true });
+    this.startBots();
+    return bot;
   }
 
   updateFigure(player, figure) {
@@ -138,10 +167,18 @@ class Game {
     return this.playerList.slice().sort((a, b) => b.score - a.score);
   }
 
+  get currentId() {
+    return this.plan[this.index];
+  }
+
+  isLast() {
+    return this.index >= this.plan.length - 1;
+  }
+
   // ---------- Poeng ----------
 
   /*
-    Poeng fra en runde. Catch-up og lynrunden dobler.
+    Poeng fra et spill. Catch-up dobler.
     opts.quiz: riktig quizsvar (lykkestjerne gir bonus).
   */
   award(playerId, base, opts = {}) {
@@ -151,18 +188,18 @@ class Game {
     player.roundBase += base;
     let points = base;
     if (player.catchUp > 0) points *= config.CATCHUP_MULTIPLIER;
-    if (this.roundNumber === 9) points *= config.R9.MULTIPLIER;
     player.score += points;
     this.changed();
     return points;
   }
 
-  // Direkte endring (betting, tyveri, kjøp). Aldri under 0.
+  // Direkte endring (straff, betting, tyveri, kjøp). Aldri under 0.
   adjust(playerId, delta) {
     const player = this.getPlayer(playerId);
     if (!player) return 0;
     const before = player.score;
     player.score = Math.max(0, player.score + delta);
+    if (delta < 0) player.roundBase += delta;
     this.changed();
     return player.score - before;
   }
@@ -176,24 +213,110 @@ class Game {
     return true;
   }
 
-  // ---------- Rundeflyt ----------
+  // ---------- Automatikk mellom faser ----------
+
+  setPhaseAuto(fn, seconds) {
+    this.clearPhaseAuto();
+    this.phaseAutoAt = Date.now() + ms(seconds);
+    this.phaseTimer = setTimeout(() => {
+      this.phaseTimer = null;
+      this.phaseAutoAt = null;
+      try {
+        fn();
+      } catch (err) {
+        if (!(err instanceof GameError)) console.error(err);
+      }
+      this.changed();
+    }, ms(seconds));
+  }
+
+  clearPhaseAuto() {
+    if (this.phaseTimer) clearTimeout(this.phaseTimer);
+    this.phaseTimer = null;
+    this.phaseAutoAt = null;
+    this.phaseSoonPending = false;
+  }
+
+  // Når alle har svart: kort pause før appen går videre. Startes bare én gang.
+  phaseSoon(fn) {
+    if (this.phaseSoonPending) return;
+    this.setPhaseAuto(fn, config.ALL_DONE_DELAY_SECONDS);
+    this.phaseSoonPending = true;
+  }
+
+  // ---------- Valg av spill ----------
+
+  setSelection(ids) {
+    if (this.phase !== "lobby") throw new GameError("Spillene velges i lobbyen.");
+    if (!Array.isArray(ids)) throw new GameError("Ugyldig valg.");
+    this.selection = ALL_IDS.filter(id => ids.includes(id));
+    this.changed();
+  }
+
+  /*
+    Under spillet: velg hvilke spill som skal komme videre.
+    Spill som er spilt eller pågår, blir stående. Resten settes opp på nytt (finalen fortsatt sist).
+    Store runder som allerede er spilt, kan ikke velges igjen. Minirunder kan.
+  */
+  setUpcoming(ids) {
+    if (this.phase === "lobby") return this.setSelection(ids);
+    if (this.phase === "results") throw new GameError("Spillet er over.");
+    if (!Array.isArray(ids)) throw new GameError("Ugyldig valg.");
+    const done = this.plan.slice(0, this.index + 1);
+    const chosen = ALL_IDS.filter(id => ids.includes(id) && !(GAMES[id].big && done.includes(id)));
+    const rest = plan.buildPlan(chosen);
+    this.plan = done.concat(rest);
+    this.selection = chosen;
+
+    // Regler som avhenger av planen, regnes ut på nytt for det som gjenstår.
+    // (Innlogging og shop som allerede er stengt, åpnes ikke igjen.)
+    this.limits = plan.thresholds(this.plan);
+    // Betting og «Kjøp en medspiller» som ikke har skjedd ennå, flyttes til et passende gjenstående spill.
+    // Pågår de akkurat nå (gjelder spillet som står for tur), blir de stående.
+    const after = i => i > this.index;
+    if (!this.bettingDone && this.bettingIndex !== this.index) {
+      const candidates = this.plan.map((id, i) => i).filter(i => after(i) && config.ROUND_MAX_POINTS[this.plan[i]]);
+      this.bettingIndex = candidates.length ? pick(candidates) : -1;
+    }
+    if (!this.buyDone && this.buyIndex !== this.index) {
+      const buyAt = config.BUY_TEAMMATE_BEFORE.map(id => this.plan.findIndex((x, i) => after(i) && x === id)).find(i => i >= 0);
+      this.buyIndex = buyAt === undefined ? -1 : buyAt;
+    }
+    // Lederens valg gjelder bare spillet de ble tatt for
+    Object.keys(this.leaderChoices).forEach(i => {
+      if (Number(i) > this.index) delete this.leaderChoices[i];
+    });
+    this.addFeed("Spillene videre er endret.");
+    this.changed();
+  }
+
+  upcomingIds() {
+    return [...new Set(this.plan.slice(this.index + 1))];
+  }
+
+  // ---------- Spillflyt ----------
 
   startGame() {
     if (this.phase !== "lobby") throw new GameError("Spillet er allerede i gang.");
     if (this.players.size < config.MIN_PLAYERS) throw new GameError(`Trenger minst ${config.MIN_PLAYERS} spillere.`);
-    this.prepareRound(1);
+    this.plan = plan.buildPlan(this.selection);
+    if (!this.plan.length) throw new GameError("Velg minst ett spill.");
+    this.limits = plan.thresholds(this.plan);
+    this.bettingIndex = plan.bettingIndex(this.plan);
+    this.buyIndex = plan.buyTeammateIndex(this.plan);
+    this.prepareRound(0);
   }
 
-  // Går til første steg før runde n: betting, kjøp av medspiller eller intro.
-  prepareRound(n) {
-    this.roundNumber = n;
+  // Går til første steg før spill nr. i: betting, kjøp av medspiller eller intro.
+  prepareRound(i) {
+    this.clearPhaseAuto();
+    this.index = i;
     this.round = null;
     this.roundSummary = [];
     this.crownId = null;
-    if (n === this.bettingRound && !this.bettingDone) {
-      this.phase = "betting";
-      this.bets.clear();
-    } else if (n === config.BUY_TEAMMATE_ROUND && !this.buyDone) {
+    if (i === this.bettingIndex && !this.bettingDone) {
+      this.startBetting();
+    } else if (i === this.buyIndex && !this.buyDone) {
       this.startBuyTeammate();
     } else {
       this.phase = "intro";
@@ -203,44 +326,44 @@ class Game {
 
   startRound() {
     if (this.phase !== "intro") throw new GameError("Runden kan ikke startes nå.");
-    const n = this.roundNumber;
-    if (n >= config.JOIN_CLOSES_AT_ROUND && this.joinOpen) {
+    this.clearPhaseAuto();
+    const i = this.index;
+    if (i >= this.limits.joinCloseIndex && this.joinOpen) {
       this.joinOpen = false;
       this.addFeed("Innloggingen er stengt.");
     }
-    if (n >= config.SHOP_CLOSES_AT_ROUND && this.shopOpen) {
+    if (i >= this.limits.shopCloseIndex && this.shopOpen) {
       this.shopOpen = false;
       this.addFeed("Shopen er stengt.");
     }
     this.playerList.forEach(p => { p.roundBase = 0; });
     const participants = this.playerList.map(p => p.id);
     const options = {
-      leaderChoice: this.leaderChoices[n],
-      fixedTeams: n === config.BUY_TEAMMATE_ROUND ? this.fixedTeams : []
+      leaderChoice: this.leaderChoices[i],
+      fixedTeams: i === this.buyIndex ? this.fixedTeams : []
     };
-    const RoundClass = ROUNDS[n];
-    this.round = new RoundClass(this, n, participants, options);
+    const RoundClass = roundClass(this.currentId);
+    this.round = new RoundClass(this, this.currentId, participants, options);
     this.phase = "round";
     this.round.start();
     this.changed();
   }
 
-  // Kalles av rundemodulen når runden er ferdig.
+  // Kalles av rundemodulen når spillet er ferdig.
   endRound() {
     if (this.phase !== "round") return;
     this.clearRoundTimers();
-    const n = this.roundNumber;
     this.roundSummary = this.round.summary ? this.round.summary() : [];
     this.crownId = null;
     this.phase = "roundEnd";
 
-    if (n === this.bettingRound && this.bets.size) this.settleBets(n);
-    this.bettingDone = this.bettingDone || n >= this.bettingRound;
+    if (this.index === this.bettingIndex && this.bets.size) this.settleBets(this.currentId);
 
-    if (n < 10) {
+    if (!this.isLast()) {
       this.payLeaderInterest();
       this.checkCatchUp();
     }
+    this.setPhaseAuto(() => this.continueAfterRound(), config.ROUND_END_SECONDS);
     this.changed();
   }
 
@@ -252,35 +375,28 @@ class Game {
 
   continueAfterRound() {
     if (this.phase !== "roundEnd") throw new GameError("Ikke tilgjengelig nå.");
-    const n = this.roundNumber;
-    if (n >= 10) {
+    this.clearPhaseAuto();
+    if (this.isLast()) {
       this.phase = "results";
       this.addFeed("Spillet er over!");
       this.changed();
       return;
     }
-    const def = leaderPowerFor(this, n + 1);
+    const next = this.index + 1;
+    const def = leaderPowerFor(this.plan[next]);
     const leaders = this.leaders();
     // Står alle likt, finnes det ingen leder å gi makten til.
     if (def && leaders.length && leaders.length < this.players.size) {
       const leader = pick(leaders);
-      const ms = config.LEADER_POWER_SECONDS * 1000;
-      this.leaderPower = {
-        round: n + 1,
-        leaderId: leader.id,
-        def,
-        endsAt: Date.now() + ms,
-        timer: setTimeout(() => {
-          if (this.phase === "leaderPower") this.chooseLeaderPower(null, null);
-        }, ms)
-      };
+      this.leaderPower = { index: next, leaderId: leader.id, def, endsAt: Date.now() + ms(config.LEADER_POWER_SECONDS) };
       this.phase = "leaderPower";
-      this.roundNumber = n + 1;
+      this.index = next;
       this.toast(leader, "Du leder! Du får bestemme noe før neste runde.");
+      this.setPhaseAuto(() => this.chooseLeaderPower(null, null), config.LEADER_POWER_SECONDS);
       this.changed();
       return;
     }
-    this.prepareRound(n + 1);
+    this.prepareRound(next);
   }
 
   chooseLeaderPower(player, value) {
@@ -295,13 +411,12 @@ class Game {
           throw new GameError("Velg to forskjellige spillere.");
         }
       }
-      this.leaderChoices[this.leaderPower.round] = value;
+      this.leaderChoices[this.leaderPower.index] = value;
       this.addFeed("Lederen har tatt et valg.");
     }
-    const n = this.leaderPower.round;
-    clearTimeout(this.leaderPower.timer);
+    const i = this.leaderPower.index;
     this.leaderPower = null;
-    this.prepareRound(n);
+    this.prepareRound(i);
   }
 
   payLeaderInterest() {
@@ -314,6 +429,7 @@ class Game {
     });
   }
 
+  // Teller alle spill, også minirunder.
   checkCatchUp() {
     const players = this.playerList;
     players.forEach(p => {
@@ -327,12 +443,18 @@ class Game {
       if (p.catchUp === 0 && top - p.score > config.CATCHUP_GAP) {
         if (this.consumeBonusBlock(p.id, "catch-up-bonusen")) return;
         p.catchUp = config.CATCHUP_ROUNDS;
-        this.toast(p, `Catch-up! Du får doble poeng de neste ${config.CATCHUP_ROUNDS} rundene.`);
+        this.toast(p, `Catch-up! Du får doble poeng de neste ${config.CATCHUP_ROUNDS} spillene.`);
       }
     });
   }
 
   // ---------- Betting ----------
+
+  startBetting() {
+    this.phase = "betting";
+    this.bets.clear();
+    this.setPhaseAuto(() => this.closeBetting(), config.BETTING_SECONDS);
+  }
 
   placeBet(player, amount) {
     if (this.phase !== "betting") throw new GameError("Betting er ikke åpen.");
@@ -340,20 +462,24 @@ class Game {
     if (!Number.isFinite(amount) || amount < 0) throw new GameError("Ugyldig innsats.");
     if (amount > player.score) throw new GameError("Du kan ikke satse mer enn du har.");
     this.bets.set(player.id, amount);
+    if (this.playerList.every(p => this.bets.has(p.id))) {
+      this.phaseSoon(() => this.closeBetting());
+    }
     this.changed();
   }
 
   closeBetting() {
     if (this.phase !== "betting") throw new GameError("Betting er ikke åpen.");
+    this.clearPhaseAuto();
     this.bettingDone = true;
     this.addFeed("Innsatsene er låst!");
-    if (this.roundNumber === config.BUY_TEAMMATE_ROUND && !this.buyDone) this.startBuyTeammate();
+    if (this.index === this.buyIndex && !this.buyDone) this.startBuyTeammate();
     else this.phase = "intro";
     this.changed();
   }
 
-  settleBets(n) {
-    const goal = config.ROUND_MAX_POINTS[n] * config.BETTING_GOOD_RATIO;
+  settleBets(id) {
+    const goal = config.ROUND_MAX_POINTS[id] * config.BETTING_GOOD_RATIO;
     this.bets.forEach((stake, playerId) => {
       const player = this.getPlayer(playerId);
       if (!player || !stake) return;
@@ -372,6 +498,7 @@ class Game {
   startBuyTeammate() {
     this.phase = "buyTeammate";
     this.buy = { step: "bidding", bids: new Map(), order: [], pickerIndex: 0, teams: [], endsAt: null, timer: null };
+    this.setPhaseAuto(() => this.closeBids(), config.BID_SECONDS);
   }
 
   placeBid(player, amount) {
@@ -380,11 +507,15 @@ class Game {
     if (!Number.isFinite(amount) || amount < 0) throw new GameError("Ugyldig bud.");
     if (amount > player.score) throw new GameError("Du kan ikke by mer enn du har.");
     this.buy.bids.set(player.id, amount);
+    if (this.playerList.every(p => this.buy.bids.has(p.id))) {
+      this.phaseSoon(() => this.closeBids());
+    }
     this.changed();
   }
 
   closeBids() {
     if (this.phase !== "buyTeammate" || this.buy.step !== "bidding") throw new GameError("Budrunden er ikke åpen.");
+    this.clearPhaseAuto();
     const bidders = shuffle([...this.buy.bids.entries()].filter(([id, bid]) => bid > 0 && this.players.has(id)))
       .sort((a, b) => b[1] - a[1]);
     bidders.forEach(([id, bid]) => this.adjust(id, -bid));
@@ -413,8 +544,8 @@ class Game {
       this.finishBuyTeammate();
       return;
     }
-    buy.endsAt = Date.now() + config.BUY_TEAMMATE_PICK_SECONDS * 1000;
-    buy.timer = setTimeout(() => this.nextPicker(), config.BUY_TEAMMATE_PICK_SECONDS * 1000);
+    buy.endsAt = Date.now() + ms(config.BUY_TEAMMATE_PICK_SECONDS);
+    buy.timer = setTimeout(() => this.nextPicker(), ms(config.BUY_TEAMMATE_PICK_SECONDS));
     this.changed();
   }
 
@@ -431,6 +562,7 @@ class Game {
 
   finishBuyTeammate() {
     if (this.buy.timer) clearTimeout(this.buy.timer);
+    this.clearPhaseAuto();
     this.fixedTeams = this.buy.teams;
     this.buy.step = "done";
     this.buyDone = true;
@@ -450,14 +582,19 @@ class Game {
     if (item.kind === "upgrade" && player.upgrades[item.upgrade] >= item.max) throw new GameError("Du har allerede maks av denne.");
 
     player.score -= item.price;
+    this.giveItem(player, item);
+    this.toast(player, `Kjøpt: ${item.name}.`);
+    this.addFeed("1 handling utført");
+    this.changed();
+  }
+
+  // Legger et kort eller en oppgradering i beholdningen (shop og auksjon)
+  giveItem(player, item) {
     if (item.kind === "card") {
       player.inventory.push({ id: `c${nextId++}`, card: item.card, value: item.value || 0, name: item.name });
     } else {
       player.upgrades[item.upgrade]++;
     }
-    this.toast(player, `Kjøpt: ${item.name}.`);
-    this.addFeed("1 handling utført");
-    this.changed();
   }
 
   useCard(player, cardId, targetId) {
@@ -470,13 +607,12 @@ class Game {
       if (!target || target.id === player.id) throw new GameError("Velg en annen spiller.");
       if (this.theft) throw new GameError("Et annet tyveri pågår. Vent litt.");
       this.removeCard(player, cardId);
-      const ms = config.THEFT_RESPONSE_SECONDS * 1000;
       this.theft = {
         thiefId: player.id,
         victimId: target.id,
         value: card.value,
-        endsAt: Date.now() + ms,
-        timer: setTimeout(() => this.resolveTheft("none"), ms)
+        endsAt: Date.now() + ms(config.THEFT_RESPONSE_SECONDS),
+        timer: setTimeout(() => this.resolveTheft("none"), ms(config.THEFT_RESPONSE_SECONDS))
       };
       this.addFeed("1 handling utført");
       this.changed();
@@ -543,18 +679,75 @@ class Game {
     this.changed();
   }
 
+  // ---------- Testmodus: bots ----------
+
+  startBots() {
+    if (this.botTimer) return;
+    this.botTimer = setInterval(() => this.botTick(), Math.max(20, ms(config.BOT_TICK_SECONDS)));
+  }
+
+  botTick() {
+    const bots = this.playerList.filter(p => p.bot);
+    if (!bots.length) return;
+    const tryDo = fn => {
+      try {
+        fn();
+      } catch (err) {
+        if (!(err instanceof GameError)) console.error("Bot-feil:", err);
+      }
+    };
+    bots.forEach(bot => {
+      const r = Math.random();
+      if (this.theft && this.theft.victimId === bot.id && r < 0.4) {
+        const options = ["accept"].concat(bot.inventory.filter(c => c.card !== "steal").map(c => c.card));
+        tryDo(() => this.respondTheft(bot, pick(options)));
+      }
+      if (this.phase === "betting" && !this.bets.has(bot.id) && r < 0.3) {
+        tryDo(() => this.placeBet(bot, randInt(0, Math.floor(bot.score * 0.3))));
+      }
+      if (this.phase === "buyTeammate") {
+        if (this.buy.step === "bidding" && !this.buy.bids.has(bot.id) && r < 0.3) {
+          tryDo(() => this.placeBid(bot, randInt(0, Math.min(bot.score, 300))));
+        }
+        if (this.buy.step === "picking" && this.buy.order[this.buy.pickerIndex] === bot.id && r < 0.5) {
+          const taken = this.takenIds();
+          const free = this.playerList.filter(p => !taken.has(p.id) && p.id !== bot.id);
+          if (free.length) tryDo(() => this.pickTeammate(bot, pick(free).id));
+        }
+      }
+      if (this.phase === "leaderPower" && this.leaderPower.leaderId === bot.id && r < 0.3) {
+        const def = this.leaderPower.def;
+        const value = def.kind === "option" ? pick(def.options).id : shuffle(this.playerList).slice(0, 2).map(p => p.id);
+        tryDo(() => this.chooseLeaderPower(bot, value));
+      }
+      // Litt shopping og kortbruk innimellom
+      if (this.shopOpen && this.phase !== "results" && r > 0.995) {
+        const affordable = config.SHOP_ITEMS.filter(i => i.price <= bot.score);
+        if (affordable.length) tryDo(() => this.buyItem(bot, pick(affordable).id));
+      }
+      if (this.phase !== "results" && r < 0.003 && bot.inventory.length) {
+        const card = pick(bot.inventory.filter(c => c.card !== "uno").concat([null]));
+        const target = pick(this.playerList.filter(p => p.id !== bot.id));
+        if (card && target) tryDo(() => this.useCard(bot, card.id, target.id));
+      }
+      if (this.phase === "round" && this.round.participants.includes(bot.id) && !this.round.ended) {
+        tryDo(() => this.round.botAct(bot));
+      }
+    });
+  }
+
   // ---------- Timere ----------
 
-  roundTimer(fn, ms) {
+  roundTimer(fn, delay) {
     const t = setTimeout(() => {
       this.roundTimers.delete(t);
       try {
         fn();
       } catch (err) {
-        console.error(err);
+        if (!(err instanceof GameError)) console.error(err);
       }
       this.changed();
-    }, ms);
+    }, delay);
     this.roundTimers.add(t);
     return t;
   }
@@ -572,9 +765,10 @@ class Game {
 
   destroy() {
     this.clearRoundTimers();
+    this.clearPhaseAuto();
+    if (this.botTimer) clearInterval(this.botTimer);
     if (this.theft) clearTimeout(this.theft.timer);
     if (this.buy && this.buy.timer) clearTimeout(this.buy.timer);
-    if (this.leaderPower) clearTimeout(this.leaderPower.timer);
     this.listeners.forEach(l => l.res.end());
     this.listeners.clear();
   }
@@ -583,6 +777,9 @@ class Game {
 
   hostAction(type, data) {
     switch (type) {
+      case "setSelection": return this.setSelection(data.ids);
+      case "setUpcoming": return this.setUpcoming(data.ids);
+      case "addBot": return this.addBot();
       case "startGame": return this.startGame();
       case "kick": return this.kick(data.playerId);
       case "startRound": return this.startRound();
@@ -623,11 +820,14 @@ class Game {
   // ---------- Visninger ----------
 
   publicPlayer(p) {
-    return { id: p.id, name: p.name, figure: p.figure, upgrades: p.upgrades, connected: p.connections > 0 };
+    return { id: p.id, name: p.name, figure: p.figure, upgrades: p.upgrades, connected: p.bot || p.connections > 0, bot: p.bot };
   }
 
   roundInfo() {
-    return this.roundNumber ? { number: this.roundNumber, ...ROUND_INFO[this.roundNumber] } : null;
+    const id = this.currentId;
+    if (!id) return null;
+    const g = GAMES[id];
+    return { number: this.index + 1, total: this.plan.length, id, title: g.title, tag: g.tag, rules: g.rules, mini: !g.big };
   }
 
   hostView() {
@@ -643,21 +843,42 @@ class Game {
       shopOpen: this.shopOpen,
       feed: this.feed,
       minPlayers: config.MIN_PLAYERS,
+      autoAt: this.phaseAutoAt,
       players: players.map(p => ({
         ...this.publicPlayer(p),
         height: p.score / top, // bare relativ høyde, aldri tall
         crown: this.crownId === p.id
       })),
-      theft: this.theft ? { endsAt: this.theft.endsAt } : null,
+      plan: this.plan.map(id => ({ id, title: GAMES[id].title, mini: !GAMES[id].big })),
       summary: this.phase === "roundEnd" ? this.roundSummary : null
     };
 
-    if (this.phase === "betting") {
-      view.betting = { placed: this.bets.size, total: players.length };
+    if (this.phase !== "results") {
+      view.games = ALL_IDS.map(id => {
+        const g = GAMES[id];
+        return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type };
+      });
     }
+    if (this.phase === "lobby") {
+      view.selection = this.selection;
+      view.estimatedMinutes = plan.estimatedMinutes(this.selection);
+    } else if (this.phase !== "results") {
+      // Til menyen «Velg spill videre»
+      const upcoming = this.upcomingIds();
+      const played = this.plan.slice(0, this.index + 1);
+      view.upcoming = {
+        selected: upcoming,
+        locked: ALL_IDS.filter(id => GAMES[id].big && played.includes(id)), // store runder som er spilt / pågår
+        remainingMinutes: this.plan.slice(this.index + 1).reduce((sum, id) => sum + GAMES[id].minutes, 0)
+      };
+    }
+    if (this.phase === "betting") view.betting = { placed: this.bets.size, total: players.length };
     if (this.phase === "buyTeammate") view.buy = this.buyView(null);
     if (this.phase === "leaderPower") view.leaderPower = { prompt: this.leaderPower.def.prompt, endsAt: this.leaderPower.endsAt };
-    if (this.phase === "round") view.game = this.round.hostView();
+    if (this.phase === "round") {
+      // Runden kan selv sette autoAt: null for å skjule nedtellingen (f.eks. «Gjett 30 sekunder»).
+      view.game = { autoAt: this.round.autoAt, ...this.round.hostView() };
+    }
     if (this.phase === "results") {
       view.results = this.rankings().map((p, i) => ({ place: i + 1, id: p.id, name: p.name }));
     }
@@ -673,7 +894,7 @@ class Game {
       bidsPlaced: buy.bids.size,
       total: this.players.size,
       pickerName: pickerId ? this.getPlayer(pickerId).name : null,
-      endsAt: buy.endsAt,
+      endsAt: buy.step === "picking" ? buy.endsAt : this.phaseAutoAt,
       teams: buy.teams.map(t => t.map(id => this.getPlayer(id)?.name || "?"))
     };
     if (player) {
@@ -693,6 +914,7 @@ class Game {
       phase: this.phase,
       serverNow: Date.now(),
       round: this.roundInfo(),
+      autoAt: this.phaseAutoAt,
       me: {
         id: player.id,
         name: player.name,
