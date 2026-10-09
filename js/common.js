@@ -132,8 +132,41 @@ const GS = (function() {
     og tar vare på verdier i input-felt med id (så skriving ikke forsvinner).
   */
   const lastHtml = new WeakMap();
+  // Oppdaterer DOM-en på plass i stedet for å bytte den ut, så elementene beholdes.
+  function morph(from, to) {
+    const oldNodes = [...from.childNodes];
+    const newNodes = [...to.childNodes];
+    newNodes.forEach((next, i) => {
+      const cur = oldNodes[i];
+      if (!cur) return from.appendChild(next);
+      if (cur.nodeType !== next.nodeType || cur.nodeName !== next.nodeName ||
+          (cur.nodeType === 1 && cur.id !== next.id)) {
+        return from.replaceChild(next, cur);
+      }
+      if (cur.nodeType !== 1) {
+        if (cur.nodeValue !== next.nodeValue) cur.nodeValue = next.nodeValue;
+        return;
+      }
+      [...cur.attributes].forEach(a => { if (!next.hasAttribute(a.name)) cur.removeAttribute(a.name); });
+      [...next.attributes].forEach(a => { if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value); });
+      morph(cur, next);
+    });
+    oldNodes.slice(newNodes.length).forEach(node => node.remove());
+  }
+
   function render(el, html) {
     if (lastHtml.get(el) === html) return;
+    // Skriver noen i et felt her, oppdateres siden på plass så feltet (og tastaturet på mobilen) beholdes.
+    const active = document.activeElement;
+    if (active && active.matches("input[id], textarea[id]") && el.contains(active)) {
+      const next = document.createElement(el.tagName);
+      next.innerHTML = html;
+      if (next.querySelector(`#${CSS.escape(active.id)}`)) {
+        morph(el, next);
+        lastHtml.set(el, html);
+        return;
+      }
+    }
     const saved = {};
     el.querySelectorAll("input[id]").forEach(input => {
       saved[input.id] = { value: input.value, focused: document.activeElement === input, dirty: input.dataset.dirty };
