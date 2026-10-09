@@ -938,8 +938,9 @@
   function roundFinal(g) {
     const names = g.finalistNames.map(esc).join(" og ");
     if (g.finalist) {
-      if (g.step === "pot" && g.question) {
-        return `<p class="muted">Finale · spørsmål ${g.index}/${g.total}</p><h1>Bygg potten: ${g.pot}</h1>${questionButtons(g.question)}`;
+      if (g.step === "talk") {
+        return `<div class="waiting"><h1>Potten: ${g.pot}</h1><p class="big">Prat sammen! Overbevis den andre om å dele. ${countdown(g.endsAt)}</p>
+          <p class="muted">Snart velger dere «Del» eller «Stjel» i hemmelighet.</p></div>`;
       }
       if (g.step === "choice") {
         return `<h1>Potten: ${g.pot}</h1><p class="big">Del eller stjel? ${countdown(g.endsAt)}</p>
@@ -957,9 +958,9 @@
       const won = g.myBet && g.outcomes.find(o => o.id === g.myBet.outcome)?.label === g.reveal.outcome;
       return waiting(esc(g.reveal.outcome) + "!", g.myBet ? (won ? "Du spådde riktig!" : "Feil spådom.") : "");
     }
-    if (g.step !== "pot") return waiting("Finale", `${names} velger nå … Innsatsene er låst.`);
+    if (g.step !== "talk") return waiting("Finale", `${names} velger nå … Innsatsene er låst.`);
     const outcomes = g.outcomes.map(o => uiBtn(esc(o.label), "finalOutcome", { v: o.id }, ui.finalOutcome === o.id ? "selected" : "secondary")).join("");
-    return `<h1>Finale!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger?</p>
+    return `<h1>Finale!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger? ${countdown(g.endsAt)}</p>
       <div class="col">${outcomes}</div>
       ${amountForm("final-stake", "finalBet", g.maxStake, g.myBet ? g.myBet.stake : null, `Innsats (riktig gir ${g.payout}× gevinst)`)}
       ${g.myBet ? `<p class="center">Du har satset ${g.myBet.stake} på «${esc(g.outcomes.find(o => o.id === g.myBet.outcome).label)}».</p>` : ""}`;

@@ -670,12 +670,10 @@
       </div>`;
     const choices = g.reveal ? g.reveal.choices : [null, null];
     let middle = "";
-    if (g.step === "pot" && g.question) {
-      const info = g.question.revealed
-        ? `<p class="center">${g.correctNames.length ? `Riktig: ${g.correctNames.map(esc).join(", ")}` : "Ingen riktige."}</p>`
-        : `<p class="center muted">${g.answered} / 2 har svart</p>`;
-      middle = questionBlock(g.question, { counter: `${g.index}/${g.total}`, banner: "Bygg potten" }) + info
-        + `<p class="center muted">${g.betsPlaced} av ${g.spectators} tilskuere har satset</p>`;
+    if (g.step === "talk") {
+      middle = `<p class="event" style="font-size:2em">Prat sammen – del eller stjel?</p>
+        <p class="center">Overbevis hverandre! Valget kommer om ${countdown(g.endsAt)} s</p>
+        <p class="center muted">${g.betsPlaced} av ${g.spectators} tilskuere har satset</p>`;
     } else if (g.step === "choice") {
       middle = `<p class="event" style="font-size:2em">Del eller stjel?</p><p class="center">${g.chosen} / 2 har valgt · ${countdown(g.endsAt)}</p>`;
     } else if (g.reveal) {

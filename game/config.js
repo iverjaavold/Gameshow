@@ -153,12 +153,9 @@ module.exports = {
 
   // Runde 10 – Finale
   R10: {
-    BASE_POT: 1000,
-    POT_PER_CORRECT: 250,
-    QUESTIONS: 8,
-    QUESTION_SECONDS: 10,
-    REVEAL_SECONDS: 3,
-    CHOICE_SECONDS: 30,
+    POT: 3000,
+    TALK_SECONDS: 45, // finalistene prater og prøver å overtale hverandre, tilskuerne satser
+    CHOICE_SECONDS: 20,
     REVEAL_END_SECONDS: 10,
     SPECTATOR_BET_PAYOUT: 2 // riktig spådom gir innsats × dette i gevinst
   },

@@ -107,13 +107,14 @@ const GAMES = {
     ]
   },
   r10: {
-    module: () => require("./r10-finale"), big: true, type: "strategi", minutes: 8,
+    module: () => require("./r10-finale"), big: true, type: "strategi", minutes: 3,
     title: "Finale: Del eller stjel", tag: "De to beste",
-    desc: "De to beste bygger en pott – og velger del eller stjel.",
+    desc: "De to beste spiller om potten – del eller stjel?",
     rules: [
-      "De to spillerne med flest poeng går til finalen.",
-      "Finalistene bygger en stor pott med raske spørsmål.",
-      "Til slutt: «Del» eller «Stjel» – i hemmelighet.",
+      "De to spillerne med flest poeng går til finalen og spiller om en pott på 3000.",
+      "Først får de prate og prøve å overtale hverandre.",
+      "Så velger begge «Del» eller «Stjel» – i hemmelighet.",
+      "Begge deler: potten deles. Én stjeler: hen tar alt. Begge stjeler: ingen får noe.",
       "Alle andre satser poeng på hva finalistene velger!"
     ]
   },
