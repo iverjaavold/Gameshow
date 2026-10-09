@@ -312,8 +312,93 @@ const GS = (function() {
     return `<span class="mine-value ${cls}" data-mine data-start="${g.startedAt}" data-sec-ms="${g.secMs}" data-pps="${g.pps}" data-accel="${g.accel}"></span>`;
   }
 
+  // Deler lenken til et spill. Bruker telefonens delingsmeny hvis den finnes, ellers kopierer lenken.
+  async function shareGame(code, button) {
+    const url = `${location.origin}/?kode=${encodeURIComponent(code)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Gameshow", text: `Bli med i Gameshow! Koden er ${code}.`, url });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+    }
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch (e) {
+      copied = false;
+    }
+    if (!copied) {
+      window.prompt("Kopier lenken:", url);
+      return;
+    }
+    if (button) {
+      const label = button.textContent;
+      button.textContent = "Lenke kopiert!";
+      setTimeout(() => { button.textContent = label; }, 2000);
+    }
+  }
+
+  // Tilbakemelding: velg Bugg eller Idé, skriv en melding og send til serveren.
+  function openFeedback(context) {
+    if (document.querySelector(".feedback-overlay")) return;
+    const overlay = document.createElement("div");
+    overlay.className = "feedback-overlay";
+    overlay.innerHTML = `
+      <form class="feedback-box">
+        <h2>Tilbakemelding</h2>
+        <div class="feedback-kinds">
+          <button type="button" class="secondary selected" data-kind="bugg">🐞 Bugg</button>
+          <button type="button" class="secondary" data-kind="ide">💡 Idé</button>
+        </div>
+        <textarea maxlength="2000" rows="5" placeholder="Hva skjedde, eller hva har du lyst på?" required></textarea>
+        <p class="feedback-status"></p>
+        <div class="feedback-actions">
+          <button type="button" class="secondary" data-close>Avbryt</button>
+          <button type="submit">Send</button>
+        </div>
+      </form>`;
+    document.body.appendChild(overlay);
+
+    const form = overlay.querySelector("form");
+    const text = overlay.querySelector("textarea");
+    const status = overlay.querySelector(".feedback-status");
+    const submit = overlay.querySelector("button[type=submit]");
+    let kind = "bugg";
+    const close = () => overlay.remove();
+
+    overlay.addEventListener("click", event => {
+      if (event.target === overlay || event.target.closest("[data-close]")) return close();
+      const kindButton = event.target.closest("[data-kind]");
+      if (kindButton) {
+        kind = kindButton.dataset.kind;
+        overlay.querySelectorAll("[data-kind]").forEach(b => b.classList.toggle("selected", b === kindButton));
+      }
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const message = text.value.trim();
+      if (!message) return;
+      submit.disabled = true;
+      status.textContent = "";
+      try {
+        await api("/api/feedback", { kind, message, context: context || location.pathname });
+        form.innerHTML = `<h2>Takk!</h2><p>Tilbakemeldingen er sendt.</p><div class="feedback-actions"><button type="button" data-close>Lukk</button></div>`;
+      } catch (e) {
+        status.textContent = e.message;
+        submit.disabled = false;
+      }
+    });
+
+    text.focus();
+  }
+
   return {
     esc, attr, api, connect, now, startCountdowns, countdown, render, onFrame,
-    figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml
+    figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml,
+    shareGame, openFeedback
   };
 })();
