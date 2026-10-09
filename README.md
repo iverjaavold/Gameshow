@@ -16,6 +16,13 @@ En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker
    «⋯» nederst til høyre har manuelle overstyringer hvis noe skulle stå fast.
 5. Mister noen forbindelsen, åpner de siden igjen. Mobilen husker spilleren. På en ny mobil skriver de samme kode og navn.
 
+### Del og tilbakemelding
+
+«Del lenke» på hovedskjermen åpner delingsmenyen (eller kopierer lenken). Lenken fyller inn koden automatisk.
+«Tilbakemelding» (forsiden og hovedskjermen) lar folk sende en **Bugg** eller **Idé**. Meldingene skrives til
+serverloggen (søk etter `[tilbakemelding]` i Render-loggen) og til `tilbakemeldinger.jsonl`
+(eller filen i miljøvariabelen `FEEDBACK_FILE`). Filen forsvinner ved ny deploy på Render uten disk.
+
 ### Testmodus
 
 Trykk **«+ Legg til bot (testmodus)»** i lobbyen. Bots spiller alle lekene med tilfeldige svar,

@@ -8,6 +8,8 @@ document.addEventListener("DOMContentLoaded", function() {
   const hostButton = document.getElementById("host-button");
   const error = document.getElementById("landing-error");
 
+  document.getElementById("feedback-button").addEventListener("click", () => GS.openFeedback("forside"));
+
   const params = new URLSearchParams(location.search);
   if (params.get("kode")) codeInput.value = params.get("kode").toUpperCase();
 

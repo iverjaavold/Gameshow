@@ -19,6 +19,7 @@ const { Game, GameError } = require("./game/game");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+const FEEDBACK_FILE = process.env.FEEDBACK_FILE || path.join(ROOT, "tilbakemeldinger.jsonl");
 const PUBLIC_PATHS = ["index.html", "host.html", "spill.html", "css/", "js/", "assets/"];
 const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg"]);
 
@@ -182,6 +183,18 @@ async function handleApi(req, res, pathname, query) {
     const game = new Game(code);
     games.set(code, game);
     return sendJson(res, 200, { code, hostToken: game.hostToken });
+  }
+
+  if (pathname === "/api/feedback") {
+    const kind = body.kind === "ide" ? "ide" : "bugg";
+    const message = String(body.message || "").trim().slice(0, 2000);
+    if (!message) throw new GameError("Skriv en melding først.");
+    const entry = { at: new Date().toISOString(), kind, message, context: String(body.context || "").slice(0, 100) };
+    console.log(`[tilbakemelding] ${JSON.stringify(entry)}`);
+    fs.appendFile(FEEDBACK_FILE, `${JSON.stringify(entry)}\n`, error => {
+      if (error) console.error("Kunne ikke lagre tilbakemelding:", error.message);
+    });
+    return sendJson(res, 200, { ok: true });
   }
 
   const game = findGame(body.code);

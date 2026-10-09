@@ -407,7 +407,7 @@
         ${countdown(t.endsAt)}
         ${t.hasUno ? sendBtn("🔄 Uno reverse", "respondTheft", { response: "uno" }, "huge-btn pink") : ""}
         ${t.hasBlock ? sendBtn("🛡️ Blokk", "respondTheft", { response: "block" }, "huge-btn good") : ""}
-        ${!t.hasUno && !t.hasBlock ? `<p class="muted">Du har ingen kort som kan stoppe det. Shopen er sperret.</p>` : ""}
+        <p class="muted">Vent ut tiden, så mister du ingen poeng – bare tiden. Shopen er sperret så lenge.</p>
         ${sendBtn("Godta", "respondTheft", { response: "accept" }, "secondary")}
       </div>`);
       return;

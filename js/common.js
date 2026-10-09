@@ -132,14 +132,62 @@ const GS = (function() {
     og tar vare på verdier i input-felt med id (så skriving ikke forsvinner).
   */
   const lastHtml = new WeakMap();
+  // Oppdaterer DOM-en på plass i stedet for å bytte den ut, så elementene beholdes.
+  function morph(from, to) {
+    const oldNodes = [...from.childNodes];
+    const newNodes = [...to.childNodes];
+    newNodes.forEach((next, i) => {
+      const cur = oldNodes[i];
+      if (!cur) return from.appendChild(next);
+      if (cur.nodeType !== next.nodeType || cur.nodeName !== next.nodeName ||
+          (cur.nodeType === 1 && cur.id !== next.id)) {
+        return from.replaceChild(next, cur);
+      }
+      if (cur.nodeType !== 1) {
+        if (cur.nodeValue !== next.nodeValue) cur.nodeValue = next.nodeValue;
+        return;
+      }
+      [...cur.attributes].forEach(a => { if (!next.hasAttribute(a.name)) cur.removeAttribute(a.name); });
+      [...next.attributes].forEach(a => { if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value); });
+      morph(cur, next);
+    });
+    oldNodes.slice(newNodes.length).forEach(node => node.remove());
+  }
+
   function render(el, html) {
     if (lastHtml.get(el) === html) return;
+    // Skriver noen i et felt her, oppdateres siden på plass så feltet (og tastaturet på mobilen) beholdes.
+    const active = document.activeElement;
+    if (active && active.matches("input[id], textarea[id]") && el.contains(active)) {
+      const next = document.createElement(el.tagName);
+      next.innerHTML = html;
+      if (next.querySelector(`#${CSS.escape(active.id)}`)) {
+        morph(el, next);
+        lastHtml.set(el, html);
+        return;
+      }
+    }
+    // Husk hvor langt rullbare lister var rullet, så de ikke hopper til toppen når de tegnes på nytt.
+    const sameKind = (root, tag, cls) => [...root.getElementsByTagName(tag)].filter(n => n.className === cls);
+    const scrolled = [];
+    el.querySelectorAll("*").forEach(node => {
+      if (node.scrollTop > 0) {
+        const tag = node.tagName, cls = node.className;
+        scrolled.push({ tag, cls, index: sameKind(el, tag, cls).indexOf(node), top: node.scrollTop });
+      }
+    });
     const saved = {};
     el.querySelectorAll("input[id]").forEach(input => {
       saved[input.id] = { value: input.value, focused: document.activeElement === input, dirty: input.dataset.dirty };
     });
+    const elTop = el.scrollTop;
     el.innerHTML = html;
     lastHtml.set(el, html);
+    if (elTop) el.scrollTop = elTop;
+    scrolled.forEach(s => {
+      const match = sameKind(el, s.tag, s.cls)[s.index];
+      if (match) match.scrollTop = s.top;
+    });
     Object.entries(saved).forEach(([id, s]) => {
       const input = el.querySelector(`#${CSS.escape(id)}`);
       if (!input || !s.dirty) return;
@@ -312,8 +360,93 @@ const GS = (function() {
     return `<span class="mine-value ${cls}" data-mine data-start="${g.startedAt}" data-sec-ms="${g.secMs}" data-pps="${g.pps}" data-accel="${g.accel}"></span>`;
   }
 
+  // Deler lenken til et spill. Bruker telefonens delingsmeny hvis den finnes, ellers kopierer lenken.
+  async function shareGame(code, button) {
+    const url = `${location.origin}/?kode=${encodeURIComponent(code)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Gameshow", text: `Bli med i Gameshow! Koden er ${code}.`, url });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return;
+      }
+    }
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch (e) {
+      copied = false;
+    }
+    if (!copied) {
+      window.prompt("Kopier lenken:", url);
+      return;
+    }
+    if (button) {
+      const label = button.textContent;
+      button.textContent = "Lenke kopiert!";
+      setTimeout(() => { button.textContent = label; }, 2000);
+    }
+  }
+
+  // Tilbakemelding: velg Bugg eller Idé, skriv en melding og send til serveren.
+  function openFeedback(context) {
+    if (document.querySelector(".feedback-overlay")) return;
+    const overlay = document.createElement("div");
+    overlay.className = "feedback-overlay";
+    overlay.innerHTML = `
+      <form class="feedback-box">
+        <h2>Tilbakemelding</h2>
+        <div class="feedback-kinds">
+          <button type="button" class="secondary selected" data-kind="bugg">🐞 Bugg</button>
+          <button type="button" class="secondary" data-kind="ide">💡 Idé</button>
+        </div>
+        <textarea maxlength="2000" rows="5" placeholder="Hva skjedde, eller hva har du lyst på?" required></textarea>
+        <p class="feedback-status"></p>
+        <div class="feedback-actions">
+          <button type="button" class="secondary" data-close>Avbryt</button>
+          <button type="submit">Send</button>
+        </div>
+      </form>`;
+    document.body.appendChild(overlay);
+
+    const form = overlay.querySelector("form");
+    const text = overlay.querySelector("textarea");
+    const status = overlay.querySelector(".feedback-status");
+    const submit = overlay.querySelector("button[type=submit]");
+    let kind = "bugg";
+    const close = () => overlay.remove();
+
+    overlay.addEventListener("click", event => {
+      if (event.target === overlay || event.target.closest("[data-close]")) return close();
+      const kindButton = event.target.closest("[data-kind]");
+      if (kindButton) {
+        kind = kindButton.dataset.kind;
+        overlay.querySelectorAll("[data-kind]").forEach(b => b.classList.toggle("selected", b === kindButton));
+      }
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const message = text.value.trim();
+      if (!message) return;
+      submit.disabled = true;
+      status.textContent = "";
+      try {
+        await api("/api/feedback", { kind, message, context: context || location.pathname });
+        form.innerHTML = `<h2>Takk!</h2><p>Tilbakemeldingen er sendt.</p><div class="feedback-actions"><button type="button" data-close>Lukk</button></div>`;
+      } catch (e) {
+        status.textContent = e.message;
+        submit.disabled = false;
+      }
+    });
+
+    text.focus();
+  }
+
   return {
     esc, attr, api, connect, now, startCountdowns, countdown, render, onFrame,
-    figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml
+    figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml,
+    shareGame, openFeedback
   };
 })();

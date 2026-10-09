@@ -17,8 +17,6 @@ body.host {
 }
 .code-box { display: flex; align-items: baseline; gap: 10px; }
 .code-box strong { font-size: 2.2em; letter-spacing: 6px; color: var(--yellow); }
-.join-hint { color: var(--muted); }
-.join-hint b { color: var(--text); }
 .round-label { margin-left: auto; font-weight: 800; font-size: 1.2em; }
 .connection { width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
 .connection.off { background: var(--bad); }
@@ -126,6 +124,7 @@ body.compact .board { height: 22vh; }
 .hero .rules li::before { content: "★ "; color: var(--yellow); }
 
 .join-big { text-align: center; }
+.join-big [data-share] { margin-top: 14px; }
 .join-big .code { font-size: clamp(4rem, 12vw, 10rem); font-weight: 900; letter-spacing: 14px; color: var(--yellow); line-height: 1; }
 .lobby-figs { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
 .lobby-fig { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; font-weight: 800; }

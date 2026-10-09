@@ -13,7 +13,7 @@
 
   const els = {
     code: document.getElementById("code"),
-    joinHint: document.getElementById("join-hint"),
+    shareButton: document.getElementById("share-button"),
     roundLabel: document.getElementById("round-label"),
     connection: document.getElementById("connection"),
     feed: document.getElementById("feed"),
@@ -29,7 +29,8 @@
   }
 
   els.code.textContent = code;
-  const joinUrl = `${location.host}`;
+  els.shareButton.addEventListener("click", () => GS.shareGame(code, els.shareButton));
+  document.getElementById("feedback-button").addEventListener("click", () => GS.openFeedback(`hovedskjerm ${code}`));
   let view = null;
   let seenFeed = 0;
   let showMenu = false;
@@ -64,6 +65,8 @@
   // ---------- Klikk ----------
 
   document.addEventListener("click", e => {
+    const shareBtn = e.target.closest("[data-share]");
+    if (shareBtn) return GS.shareGame(code, shareBtn);
     const btn = e.target.closest("[data-send]");
     if (btn) {
       const { type, data } = JSON.parse(btn.dataset.send);
@@ -141,7 +144,7 @@
 
   function draw() {
     if (!view) return;
-    els.joinHint.innerHTML = view.joinOpen ? `Bli med på <b>${esc(joinUrl)}</b>` : "";
+    els.shareButton.classList.toggle("hidden", !view.joinOpen);
     els.roundLabel.textContent = view.round ? `Spill ${view.round.number} av ${view.round.total} · ${view.round.title}` : "Lobby";
     document.body.classList.toggle("compact", view.phase === "round");
     drawFeed();
@@ -248,8 +251,9 @@
     return `<div class="lobby">
       <div class="col lobby-left">
         <div class="join-big">
-          <p class="muted" style="font-size:1.3em">Gå til <b style="color:white">${esc(joinUrl)}</b> på mobilen og skriv inn koden</p>
+          <p class="muted" style="font-size:1.3em">Skriv inn koden på mobilen</p>
           <div class="code">${esc(code)}</div>
+          <button class="secondary" data-share>Del lenke</button>
         </div>
         <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>
         <p class="center muted">${view.players.length} spiller${view.players.length === 1 ? "" : "e"} · minst ${view.minPlayers} for å starte</p>
