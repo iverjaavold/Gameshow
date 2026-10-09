@@ -747,8 +747,8 @@
 
   function roundTretti(g) {
     if (g.step === "running") {
-      return `<div class="hero"><div class="big-number now-big">NÅ!</div>
-        <p style="font-size:1.6em">Trykk på mobilen når du tror det har gått nøyaktig 30 sekunder.</p>
+      return `<div class="hero"><div class="round-no">Gjett 30 sekunder</div><h1 class="mid-title">Start når du vil!</h1>
+        <p style="font-size:1.6em">Trykk START på mobilen når du er klar, og STOPP når du tror det har gått nøyaktig 30 sekunder.</p>
         <p class="muted">Ingen klokke. Ingen hjelp. Lykke til!</p></div>`;
     }
     const rows = g.rows.map(r => [`<b>${esc(r.name)}</b>`, r.seconds === null ? "Trykket ikke" : `${r.seconds} s`, `${r.off} s unna`, r.points ? `${r.points}` : "0"]);

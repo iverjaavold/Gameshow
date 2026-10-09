@@ -633,8 +633,12 @@
   function roundTretti(g) {
     if (g.step === "running") {
       if (g.pressed) return waiting("Registrert!", "Venter på de andre …");
-      return `<h1 class="center">Trykk etter 30 sekunder</h1><p class="center">Ingen klokke. Tell i hodet!</p>
-        ${roundBtn("NÅ!", "press", {}, "buzzer good")}`;
+      if (!g.started) {
+        return `<h1 class="center">Gjett 30 sekunder</h1><p class="center">Trykk START når du er klar. Da starter tiden din.</p>
+          ${roundBtn("START", "start", {}, "buzzer good")}`;
+      }
+      return `<h1 class="center">Tiden går!</h1><p class="center">Ingen klokke. Tell i hodet, og trykk STOPP etter 30 sekunder.</p>
+        ${roundBtn("STOPP", "press", {}, "buzzer bad")}`;
     }
     const m = g.mine;
     if (!m) return waiting("Ferdig!");

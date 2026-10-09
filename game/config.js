@@ -172,7 +172,8 @@ module.exports = {
   // Minirunde – Gjett 30 sekunder
   TRETTI: {
     TARGET_SECONDS: 30,
-    MAX_SECONDS: 60, // den som ikke har trykket etter dette, regnes som 30 sekunder unna
+    MAX_SECONDS: 60, // den som ikke har stoppet så lenge etter sin egen start, regnes som 30 sekunder unna
+    ROUND_SECONDS: 120, // hele runden: den som ikke har startet innen dette, regnes også som 30 sekunder unna
     MISSING_OFF_SECONDS: 30,
     POINTS_PER_SECOND_OFF: -50,
     REVEAL_SECONDS: 12

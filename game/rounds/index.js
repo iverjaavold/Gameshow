@@ -134,10 +134,10 @@ const GAMES = {
   tretti: {
     module: () => require("./mini-tretti"), type: "konkurranse", minutes: 2,
     title: "Gjett 30 sekunder", tag: "Minirunde",
-    desc: "Trykk når du tror det har gått nøyaktig 30 sekunder.",
+    desc: "Start din egen tid og stopp når du tror det har gått nøyaktig 30 sekunder.",
     rules: [
-      "Når det står «Nå!», starter tiden. Ingen klokke vises.",
-      "Trykk på mobilen når du tror det har gått nøyaktig 30 sekunder.",
+      "Trykk «START» på mobilen når du er klar – da starter din egen tid. Ingen klokke vises.",
+      "Trykk «STOPP» når du tror det har gått nøyaktig 30 sekunder.",
       "−50 poeng per sekund du bommer med."
     ]
   },
