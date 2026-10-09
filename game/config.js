@@ -189,9 +189,10 @@ module.exports = {
   // Minirunde – Auksjonen
   AUKSJON: {
     BID_SECONDS: 20,
-    POINT_PRIZES: [200, 500, 1000],
-    CARD_PRIZES: ["steal250", "steal500", "steal1000", "uno", "block"],
-    POINTS_CHANCE: 0.5,
+    // Pakken inneholder et tilfeldig antall poeng mellom disse (alltid positivt)
+    PRIZE_MIN: 100,
+    PRIZE_MAX: 1500,
+    PRIZE_STEP: 50,
     REVEAL_SECONDS: 6
   },
 

@@ -1,13 +1,13 @@
 /*
   Minirunde – Auksjonen.
-  En hemmelig pakke: 50 % poeng (+200/+500/+1000), 50 % et tilfeldig kort fra shopen.
+  En hemmelig pakke med et tilfeldig antall poeng – alltid positivt (se config.AUKSJON).
   Alle byr i hemmelighet. Høyeste bud betaler og får pakken (likt bud: den som bød først).
   Hovedskjermen viser bare at auksjonen er avgjort – innhold og bud ser bare vinneren.
 */
 
 const config = require("../config");
 const { Round, GameError } = require("./base");
-const { pick, randInt } = require("../util");
+const { randInt } = require("../util");
 
 const C = config.AUKSJON;
 
@@ -15,14 +15,9 @@ class AuctionRound extends Round {
   start() {
     this.step = "bid"; // bid | done
     this.bids = new Map(); // spiller -> { amount, at }
-    if (Math.random() < C.POINTS_CHANCE) {
-      const points = pick(C.POINT_PRIZES);
-      this.prize = { kind: "points", points, label: `${points} poeng` };
-    } else {
-      const itemId = pick(C.CARD_PRIZES);
-      const item = config.SHOP_ITEMS.find(i => i.id === itemId);
-      this.prize = { kind: "card", item, label: `kortet «${item.name}»` };
-    }
+    const steps = Math.floor((C.PRIZE_MAX - C.PRIZE_MIN) / C.PRIZE_STEP);
+    const points = C.PRIZE_MIN + randInt(0, steps) * C.PRIZE_STEP;
+    this.prize = { points, label: `${points} poeng` };
     this.auto(() => this.resolve(), C.BID_SECONDS);
     this.changed();
   }
@@ -38,8 +33,7 @@ class AuctionRound extends Round {
       const winner = this.player(winnerId);
       const amount = Math.min(bid.amount, winner.score);
       this.game.adjust(winnerId, -amount);
-      if (this.prize.kind === "points") this.game.adjust(winnerId, this.prize.points);
-      else this.game.giveItem(winner, this.prize.item);
+      this.game.adjust(winnerId, this.prize.points);
       this.winnerId = winnerId;
       this.paid = amount;
       this.game.toast(winner, `Du vant auksjonen for ${amount} poeng! Pakken inneholdt ${this.prize.label}.`);

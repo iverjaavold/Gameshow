@@ -154,11 +154,11 @@ const GAMES = {
   auksjon: {
     module: () => require("./mini-auksjon"), type: "strategi", minutes: 1,
     title: "Auksjonen", tag: "Hemmelig pakke",
-    desc: "By på en hemmelig pakke med poeng eller et shop-kort. Kommer opptil 4 ganger.",
+    desc: "By på en hemmelig pakke med et tilfeldig antall poeng. Kommer opptil 4 ganger.",
     rules: [
-      "En hemmelig pakke er til salgs. Innholdet er alltid positivt.",
-      "Den inneholder poeng eller et kort fra shopen.",
-      "By i hemmelighet. Høyeste bud betaler og får pakken."
+      "En hemmelig pakke med et tilfeldig antall poeng er til salgs – mellom 100 og 1500.",
+      "Innholdet er alltid positivt, men du vet ikke hvor mye.",
+      "By i hemmelighet. Den som byr mest, betaler budet sitt og får pakken."
     ]
   },
   reaksjon: {
