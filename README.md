@@ -31,7 +31,7 @@ så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet
 ## Spillene
 
 **Store runder:** 1 Hvelvet · 2 Kongen på haugen · 3 Tegn etter beskrivelse · 4 Forklar-mime ·
-5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Finale
+5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Del eller stjel (finalen)
 
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
 Reaksjonstest · Estimering · Gruva · Bildezoom

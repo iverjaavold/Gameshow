@@ -951,16 +951,16 @@
           </div>`;
       }
       if (g.reveal) return waiting(esc(g.reveal.outcome) + "!", `Potten var ${g.pot}.`);
-      return waiting("Finale", `Potten: ${g.pot}`);
+      return waiting("Del eller stjel", `Potten: ${g.pot}`);
     }
     // Tilskuer
     if (g.reveal) {
       const won = g.myBet && g.outcomes.find(o => o.id === g.myBet.outcome)?.label === g.reveal.outcome;
       return waiting(esc(g.reveal.outcome) + "!", g.myBet ? (won ? "Du spådde riktig!" : "Feil spådom.") : "");
     }
-    if (g.step !== "talk") return waiting("Finale", `${names} velger nå … Innsatsene er låst.`);
+    if (g.step !== "talk") return waiting("Del eller stjel", `${names} velger nå … Innsatsene er låst.`);
     const outcomes = g.outcomes.map(o => uiBtn(esc(o.label), "finalOutcome", { v: o.id }, ui.finalOutcome === o.id ? "selected" : "secondary")).join("");
-    return `<h1>Finale!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger? ${countdown(g.endsAt)}</p>
+    return `<h1>Del eller stjel!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger? ${countdown(g.endsAt)}</p>
       <div class="col">${outcomes}</div>
       ${amountForm("final-stake", "finalBet", g.maxStake, g.myBet ? g.myBet.stake : null, `Innsats (riktig gir ${g.payout}× gevinst)`)}
       ${g.myBet ? `<p class="center">Du har satset ${g.myBet.stake} på «${esc(g.outcomes.find(o => o.id === g.myBet.outcome).label)}».</p>` : ""}`;
