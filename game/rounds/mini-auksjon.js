@@ -57,7 +57,7 @@ class AuctionRound extends Round {
     if (amount > player.score) throw new GameError("Du kan ikke by mer enn du har.");
     const old = this.bids.get(player.id);
     // Tidspunktet teller ved likt bud. Det oppdateres bare når budet endres.
-    this.bids.set(player.id, { amount, at: old && old.amount === amount ? old.at : Date.now() });
+    this.bids.set(player.id, { amount, at: old && old.amount === amount ? old.at : this.game.now() });
     if (this.allIn(this.bids)) this.soon(() => this.resolve());
     this.changed();
   }

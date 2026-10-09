@@ -26,18 +26,18 @@ class MineRound extends Round {
     this.crashAt = this.startedAt + ms(this.crashSeconds); // HEMMELIG – sendes aldri før raset
     this.taken = new Map(); // spiller -> verdi
     this.botTargets = new Map();
-    this.crashTimer = this.timer(() => this.crash(), (this.crashAt - Date.now()) / ms(1));
+    this.crashTimer = this.timer(() => this.crash(), (this.crashAt - this.game.now()) / ms(1));
     this.changed();
   }
 
   secondsNow() {
-    return (Date.now() - this.startedAt) / ms(1);
+    return (this.game.now() - this.startedAt) / ms(1);
   }
 
   take(player) {
     if (this.taken.has(player.id)) return;
-    if (Date.now() < this.startedAt) throw new GameError("Vent til gruva åpner!");
-    if (this.step !== "running" || Date.now() >= this.crashAt) {
+    if (this.game.now() < this.startedAt) throw new GameError("Vent til gruva åpner!");
+    if (this.step !== "running" || this.game.now() >= this.crashAt) {
       this.taken.set(player.id, C.CRASH_POINTS);
       return this.changed();
     }
@@ -53,7 +53,7 @@ class MineRound extends Round {
     if (this.step !== "running") return;
     this.clearTimer(this.crashTimer);
     this.step = "reveal";
-    this.crashed = Date.now() >= this.crashAt - 50;
+    this.crashed = this.game.now() >= this.crashAt - 50;
     this.activeParticipants().forEach(id => {
       if (!this.taken.has(id)) {
         this.taken.set(id, C.CRASH_POINTS);
@@ -77,7 +77,7 @@ class MineRound extends Round {
   }
 
   botAct(bot) {
-    if (this.step !== "running" || this.taken.has(bot.id) || Date.now() < this.startedAt) return;
+    if (this.step !== "running" || this.taken.has(bot.id) || this.game.now() < this.startedAt) return;
     if (!this.botTargets.has(bot.id)) this.botTargets.set(bot.id, randFloat(5, 35));
     if (this.secondsNow() >= this.botTargets.get(bot.id)) this.take(bot);
   }

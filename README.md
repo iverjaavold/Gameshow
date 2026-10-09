@@ -14,6 +14,7 @@ En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker
    og **grønn/rød** der et menneske må vurdere et svar (mime, kortstokken i runde 7 og Lynrunden).
    Alt annet – nedtellinger, neste spørsmål, avsløringer og overganger – skjer av seg selv.
    «⋯» nederst til høyre har manuelle overstyringer hvis noe skulle stå fast.
+   «⏸ Pause» nederst fryser alle nedtellinger og automatikk til hosten trykker «▶ Fortsett».
 5. Mister noen forbindelsen, åpner de siden igjen. Mobilen husker spilleren. På en ny mobil skriver de samme kode og navn.
 
 ### Del og tilbakemelding

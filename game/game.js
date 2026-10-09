@@ -22,6 +22,11 @@ class Game {
     this.createdAt = Date.now();
     this.lastActivity = Date.now();
 
+    // Spillklokke: står stille mens spillet er på pause
+    this.pausedAt = null;
+    this.pausedTotal = 0;
+    this.timers = new Set();
+
     this.players = new Map(); // id -> spiller
     this.phase = "lobby"; // lobby | betting | buyTeammate | leaderPower | intro | round | roundEnd | results
     this.round = null;
@@ -213,12 +218,61 @@ class Game {
     return true;
   }
 
+  // ---------- Spillklokke og pause ----------
+
+  // Spilltid i ms. Står stille under pause, så alle nedtellinger og tidspunkter fryses.
+  now() {
+    return (this.pausedAt || Date.now()) - this.pausedTotal;
+  }
+
+  get paused() {
+    return this.pausedAt !== null;
+  }
+
+  // Som setTimeout, men følger spillklokken (venter mens spillet er på pause).
+  later(fn, delay) {
+    const handle = { at: this.now() + delay, fn, t: null };
+    this.timers.add(handle);
+    this.armTimer(handle);
+    return handle;
+  }
+
+  armTimer(handle) {
+    if (this.paused) return;
+    handle.t = setTimeout(() => {
+      this.timers.delete(handle);
+      handle.fn();
+    }, Math.max(0, handle.at - this.now()));
+  }
+
+  cancel(handle) {
+    if (!handle) return;
+    clearTimeout(handle.t);
+    this.timers.delete(handle);
+  }
+
+  pause() {
+    if (this.paused) return;
+    if (this.phase === "lobby" || this.phase === "results") throw new GameError("Ingenting å sette på pause nå.");
+    this.pausedAt = Date.now();
+    this.timers.forEach(handle => clearTimeout(handle.t));
+    this.changed();
+  }
+
+  resume() {
+    if (!this.paused) return;
+    this.pausedTotal += Date.now() - this.pausedAt;
+    this.pausedAt = null;
+    this.timers.forEach(handle => this.armTimer(handle));
+    this.changed();
+  }
+
   // ---------- Automatikk mellom faser ----------
 
   setPhaseAuto(fn, seconds) {
     this.clearPhaseAuto();
-    this.phaseAutoAt = Date.now() + ms(seconds);
-    this.phaseTimer = setTimeout(() => {
+    this.phaseAutoAt = this.now() + ms(seconds);
+    this.phaseTimer = this.later(() => {
       this.phaseTimer = null;
       this.phaseAutoAt = null;
       try {
@@ -231,7 +285,7 @@ class Game {
   }
 
   clearPhaseAuto() {
-    if (this.phaseTimer) clearTimeout(this.phaseTimer);
+    this.cancel(this.phaseTimer);
     this.phaseTimer = null;
     this.phaseAutoAt = null;
     this.phaseSoonPending = false;
@@ -388,7 +442,7 @@ class Game {
     // Står alle likt, finnes det ingen leder å gi makten til.
     if (def && leaders.length && leaders.length < this.players.size) {
       const leader = pick(leaders);
-      this.leaderPower = { index: next, leaderId: leader.id, def, endsAt: Date.now() + ms(config.LEADER_POWER_SECONDS) };
+      this.leaderPower = { index: next, leaderId: leader.id, def, endsAt: this.now() + ms(config.LEADER_POWER_SECONDS) };
       this.phase = "leaderPower";
       this.index = next;
       this.toast(leader, "Du leder! Du får bestemme noe før neste runde.");
@@ -532,7 +586,7 @@ class Game {
 
   nextPicker() {
     const buy = this.buy;
-    if (buy.timer) clearTimeout(buy.timer);
+    this.cancel(buy.timer);
     buy.timer = null;
     const taken = this.takenIds();
     const available = () => this.playerList.filter(p => !taken.has(p.id));
@@ -544,8 +598,8 @@ class Game {
       this.finishBuyTeammate();
       return;
     }
-    buy.endsAt = Date.now() + ms(config.BUY_TEAMMATE_PICK_SECONDS);
-    buy.timer = setTimeout(() => this.nextPicker(), ms(config.BUY_TEAMMATE_PICK_SECONDS));
+    buy.endsAt = this.now() + ms(config.BUY_TEAMMATE_PICK_SECONDS);
+    buy.timer = this.later(() => this.nextPicker(), ms(config.BUY_TEAMMATE_PICK_SECONDS));
     this.changed();
   }
 
@@ -561,7 +615,7 @@ class Game {
   }
 
   finishBuyTeammate() {
-    if (this.buy.timer) clearTimeout(this.buy.timer);
+    this.cancel(this.buy.timer);
     this.clearPhaseAuto();
     this.fixedTeams = this.buy.teams;
     this.buy.step = "done";
@@ -611,8 +665,8 @@ class Game {
         thiefId: player.id,
         victimId: target.id,
         value: card.value,
-        endsAt: Date.now() + ms(config.THEFT_RESPONSE_SECONDS),
-        timer: setTimeout(() => this.resolveTheft("timeout"), ms(config.THEFT_RESPONSE_SECONDS))
+        endsAt: this.now() + ms(config.THEFT_RESPONSE_SECONDS),
+        timer: this.later(() => this.resolveTheft("timeout"), ms(config.THEFT_RESPONSE_SECONDS))
       };
       this.addFeed("1 handling utført");
       this.changed();
@@ -656,7 +710,7 @@ class Game {
   resolveTheft(response) {
     const theft = this.theft;
     if (!theft) return;
-    clearTimeout(theft.timer);
+    this.cancel(theft.timer);
     this.theft = null;
     const thief = this.getPlayer(theft.thiefId);
     const victim = this.getPlayer(theft.victimId);
@@ -691,6 +745,7 @@ class Game {
   }
 
   botTick() {
+    if (this.paused) return;
     const bots = this.playerList.filter(p => p.bot);
     if (!bots.length) return;
     const tryDo = fn => {
@@ -743,7 +798,7 @@ class Game {
   // ---------- Timere ----------
 
   roundTimer(fn, delay) {
-    const t = setTimeout(() => {
+    const t = this.later(() => {
       this.roundTimers.delete(t);
       try {
         fn();
@@ -758,12 +813,12 @@ class Game {
 
   clearRoundTimer(t) {
     if (!t) return;
-    clearTimeout(t);
+    this.cancel(t);
     this.roundTimers.delete(t);
   }
 
   clearRoundTimers() {
-    this.roundTimers.forEach(t => clearTimeout(t));
+    this.roundTimers.forEach(t => this.cancel(t));
     this.roundTimers.clear();
   }
 
@@ -771,8 +826,8 @@ class Game {
     this.clearRoundTimers();
     this.clearPhaseAuto();
     if (this.botTimer) clearInterval(this.botTimer);
-    if (this.theft) clearTimeout(this.theft.timer);
-    if (this.buy && this.buy.timer) clearTimeout(this.buy.timer);
+    this.timers.forEach(handle => clearTimeout(handle.t));
+    this.timers.clear();
     this.listeners.forEach(l => l.res.end());
     this.listeners.clear();
   }
@@ -784,6 +839,8 @@ class Game {
       case "setSelection": return this.setSelection(data.ids);
       case "setUpcoming": return this.setUpcoming(data.ids);
       case "addBot": return this.addBot();
+      case "pause": return this.pause();
+      case "resume": return this.resume();
       case "startGame": return this.startGame();
       case "kick": return this.kick(data.playerId);
       case "startRound": return this.startRound();
@@ -801,6 +858,7 @@ class Game {
   }
 
   playerAction(player, type, data) {
+    if (this.paused && type !== "seenToasts" && type !== "figure") throw new GameError("Spillet er satt på pause.");
     switch (type) {
       case "figure": return this.updateFigure(player, data.figure);
       case "buy": return this.buyItem(player, data.itemId);
@@ -841,7 +899,8 @@ class Game {
       role: "host",
       code: this.code,
       phase: this.phase,
-      serverNow: Date.now(),
+      serverNow: this.now(),
+      paused: this.paused,
       round: this.roundInfo(),
       joinOpen: this.joinOpen,
       shopOpen: this.shopOpen,
@@ -916,7 +975,8 @@ class Game {
       role: "player",
       code: this.code,
       phase: this.phase,
-      serverNow: Date.now(),
+      serverNow: this.now(),
+      paused: this.paused,
       round: this.roundInfo(),
       autoAt: this.phaseAutoAt,
       me: {

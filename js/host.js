@@ -213,9 +213,10 @@
       menu.push(button("Avslutt runden", "endRound", {}, "bad", "Avslutte runden nå?"));
     }
 
-    const pill = autoAt ? `<span class="auto-pill">Går videre om ${countdown(autoAt)} s</span>` : "";
+    const pill = autoAt ? `<span class="auto-pill">${view.paused ? "På pause" : `Går videre om ${countdown(autoAt)} s`}</span>` : "";
     if (p !== "lobby" && p !== "results") {
       buttons.unshift(`<button class="secondary planner-toggle" data-planner="1">📋 Velg spill videre</button>`);
+      buttons.unshift(view.paused ? button("▶ Fortsett", "resume", {}, "good") : button("⏸ Pause", "pause", {}, "secondary"));
     }
     const menuHtml = menu.length
       ? `<div class="menu ${showMenu ? "" : "hidden"}">${menu.join("")}</div><button class="menu-toggle" data-menu="1" title="Manuelle valg">⋯</button>`

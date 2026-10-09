@@ -49,7 +49,7 @@ class ZoomRound extends Round {
     this.image = pick(pool);
     this.game.usedContent.add(this.image);
     this.step = "zoom"; // zoom | reveal
-    this.startedAt = Date.now();
+    this.startedAt = this.game.now();
     this.zoomMs = ms(C.ZOOM_SECONDS);
     // Fokuspunkt: et tilfeldig sted nær midten, så første utsnitt ikke er helt tomt
     this.focus = { x: randInt(35, 65), y: randInt(35, 65) };
@@ -60,7 +60,7 @@ class ZoomRound extends Round {
   }
 
   pointsNow() {
-    const p = Math.min(1, (Date.now() - this.startedAt) / this.zoomMs);
+    const p = Math.min(1, (this.game.now() - this.startedAt) / this.zoomMs);
     return Math.round((C.MAX_POINTS - (C.MAX_POINTS - C.MIN_POINTS) * p) / 10) * 10;
   }
 
@@ -68,7 +68,7 @@ class ZoomRound extends Round {
     if (this.step !== "zoom") throw new GameError("For sent.");
     if (this.solved.has(player.id)) return;
     const until = this.cooldown.get(player.id) || 0;
-    if (Date.now() < until) throw new GameError(`Vent ${Math.ceil((until - Date.now()) / ms(1))} sekunder.`);
+    if (this.game.now() < until) throw new GameError(`Vent ${Math.ceil((until - this.game.now()) / ms(1))} sekunder.`);
     const normalized = text.normalize(guessText);
     if (!normalized) throw new GameError("Skriv et svar.");
     const correct = this.image.answers.some(a => text.sameNormalized(text.normalize(a), normalized));
@@ -78,7 +78,7 @@ class ZoomRound extends Round {
       this.game.award(player.id, points);
       if (this.allIn(this.solved)) this.auto(() => this.reveal(), 1);
     } else {
-      this.cooldown.set(player.id, Date.now() + ms(C.WRONG_COOLDOWN_SECONDS));
+      this.cooldown.set(player.id, this.game.now() + ms(C.WRONG_COOLDOWN_SECONDS));
     }
     this.changed();
     return correct;
@@ -102,7 +102,7 @@ class ZoomRound extends Round {
   }
 
   botAct(bot) {
-    if (this.step !== "zoom" || this.solved.has(bot.id) || Date.now() < (this.cooldown.get(bot.id) || 0)) return;
+    if (this.step !== "zoom" || this.solved.has(bot.id) || this.game.now() < (this.cooldown.get(bot.id) || 0)) return;
     if (this.chance(0.15)) this.guess(bot, this.chance(0.4) ? pick(this.image.answers) : "noe helt annet");
   }
 

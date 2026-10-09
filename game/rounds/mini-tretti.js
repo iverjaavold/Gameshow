@@ -15,7 +15,7 @@ const C = config.TRETTI;
 class ThirtyRound extends Round {
   start() {
     this.step = "running"; // running | reveal
-    this.startedAt = Date.now();
+    this.startedAt = this.game.now();
     this.presses = new Map(); // spiller -> millisekunder etter start
     this.botTargets = new Map();
     this.auto(() => this.reveal(), C.MAX_SECONDS);
@@ -25,7 +25,7 @@ class ThirtyRound extends Round {
   press(player) {
     if (this.step !== "running") throw new GameError("For sent.");
     if (this.presses.has(player.id)) return;
-    this.presses.set(player.id, Date.now() - this.startedAt);
+    this.presses.set(player.id, this.game.now() - this.startedAt);
     if (this.allIn(this.presses)) this.reveal();
     this.changed();
   }
@@ -58,7 +58,7 @@ class ThirtyRound extends Round {
   botAct(bot) {
     if (this.step !== "running" || this.presses.has(bot.id)) return;
     if (!this.botTargets.has(bot.id)) this.botTargets.set(bot.id, randFloat(24, 37));
-    if (Date.now() - this.startedAt >= ms(this.botTargets.get(bot.id))) this.press(bot);
+    if (this.game.now() - this.startedAt >= ms(this.botTargets.get(bot.id))) this.press(bot);
   }
 
   hostView() {
