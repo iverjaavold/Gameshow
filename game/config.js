@@ -57,7 +57,7 @@ module.exports = {
   // Maks mulige poeng per spill (brukes til betting). Spill som mangler her, kan ikke få betting.
   ROUND_MAX_POINTS: {
     r1: 1000, r2: 2000, r3: 1500, r4: 900, r5: 1500, r6: 500, r7: 1500, r8: 400, r9: 1000,
-    dyr: 600, tenk: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
+    dyr: 600, tenk: 1500, mafia: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
   },
 
   // Runde 1 – Hvelvet
@@ -195,6 +195,19 @@ module.exports = {
     PRIZE_MAX: 1500,
     PRIZE_STEP: 50,
     REVEAL_SECONDS: 6
+  },
+
+  // Minirunde – Blunke-mafia
+  MAFIA: {
+    MIN_PLAYERS: 3, // under dette hoppes leken over
+    RECOMMENDED_PLAYERS: 5,
+    ROLE_SECONDS: 10, // alle ser rollen sin i hemmelighet
+    PLAY_SECONDS: 180, // går tiden ut, vinner mafiaen
+    REVEAL_SECONDS: 10,
+    KILL_POINTS: 150, // til mafiaen per drap
+    MAFIA_WIN_POINTS: 600,
+    CATCH_POINTS: 500, // til den som avslører mafiaen
+    SURVIVOR_POINTS: 200 // til hver borger som lever når mafiaen blir tatt
   },
 
   // Minirunde – Reaksjonstest (F1-start)

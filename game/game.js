@@ -919,7 +919,7 @@ class Game {
     if (this.phase !== "results") {
       view.games = ALL_IDS.map(id => {
         const g = GAMES[id];
-        return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type };
+        return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type, recommended: g.recommended || null };
       });
     }
     if (this.phase === "lobby") {

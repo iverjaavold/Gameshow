@@ -161,6 +161,19 @@ const GAMES = {
       "By i hemmelighet. Den som byr mest, betaler budet sitt og får pakken."
     ]
   },
+  mafia: {
+    module: () => require("./mini-mafia"), type: "strategi", minutes: 4, recommended: 5,
+    title: "Blunke-mafia", tag: "Minirunde – anbefalt 5+ deltakere",
+    desc: "Én er mafia og dreper ved å blunke. Finn mafiaen før alle er døde! Anbefalt 5+ deltakere.",
+    rules: [
+      "Se på mobilen i hemmelighet: én av dere er MAFIA.",
+      "Mafiaen dreper ved å blunke med ett øye til noen – uten at andre ser det.",
+      "Blir du blunket til: vent litt, dø dramatisk og trykk «Jeg ble drept».",
+      "Tror du at du vet hvem det er? Anklag! Feil anklage, og du er ute.",
+      "Borgerne vinner hvis mafiaen blir tatt. Mafiaen vinner hvis tiden går ut.",
+      "Anbefalt for mer enn 4 deltakere."
+    ]
+  },
   reaksjon: {
     module: () => require("./mini-reaksjon"), type: "konkurranse", minutes: 2,
     title: "Reaksjonstest", tag: "Minirunde – F1-start",

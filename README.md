@@ -1,6 +1,6 @@
 # Gameshow
 
-Festspill i gameshow-stil med 10 store runder og 8 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
+Festspill i gameshow-stil med 10 store runder og 9 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
 En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker å installere.
 
 ## Slik spiller dere
@@ -35,7 +35,7 @@ så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet
 5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Del eller stjel (finalen)
 
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
-Reaksjonstest · Estimering · Gruva · Bildezoom
+Reaksjonstest · Estimering · Gruva · Bildezoom · Blunke-mafia (anbefalt 5+ deltakere)
 
 Regler som før var knyttet til rundenumre, skaleres etter antall valgte spill (se `game/config.js`):
 innloggingen stenger halvveis, shopen stenger når 70 % er spilt, og betting og «Kjøp en medspiller»

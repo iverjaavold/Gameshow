@@ -288,6 +288,9 @@
         }
         return;
       }
+      case "mafiaAccuse":
+        ui.mafiaAccuse = !ui.mafiaAccuse;
+        break;
       case "finalOutcome":
         ui.finalOutcome = data.v;
         break;
@@ -572,7 +575,8 @@
       reaksjon: roundReaksjon,
       estimat: roundEstimat,
       gruva: roundGruva,
-      bilde: roundBilde
+      bilde: roundBilde,
+      mafia: roundMafia
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -644,6 +648,35 @@
     const m = g.mine;
     if (!m) return waiting("Ferdig!");
     return waiting(m.seconds === null ? "Du trykket ikke!" : `${m.seconds} sekunder`, `${m.off} s unna · ${m.points} poeng`);
+  }
+
+  function roundMafia(g) {
+    if (g.step === "reveal" || !g.alive) ui.mafiaAccuse = false;
+    if (g.step === "reveal") {
+      return waiting(g.mafiaName ? `Mafiaen var ${esc(g.mafiaName)}!` : "Blunke-mafia", esc(g.result || ""));
+    }
+    if (g.isMafia) {
+      return `<div class="waiting mafia-role"><div class="mafia-icon">🕶️</div><h1>Du er MAFIA</h1>
+        <p class="big">Blunk med ett øye til folk for å drepe dem. Ikke bli sett!</p>
+        ${g.step === "play" ? `<p class="big">Drept så langt: <b>${g.kills}</b></p>` : `<p class="muted">Starter om ${countdown(g.endsAt)} s – skjul skjermen!</p>`}</div>`;
+    }
+    if (!g.alive) {
+      return waiting(g.deadHow === "wrong" ? "Feil anklage – du er ute!" : "Du er død 💀", "Hold tett om hvem det var!");
+    }
+    if (g.step === "roles") {
+      return `<div class="waiting"><div class="mafia-icon">🙂</div><h1>Du er borger</h1>
+        <p class="big">Finn mafiaen før den blunker til deg! Starter om ${countdown(g.endsAt)} s</p></div>`;
+    }
+    if (ui.mafiaAccuse) {
+      const list = g.targets.map(t => sendBtn(esc(t.name), "round", { action: "accuse", target: t.id }, "secondary",
+        `Anklage ${t.name}? Tar du feil, er du ute.`)).join("");
+      return `<h1>Hvem er mafiaen?</h1><p>Tar du feil, er du ute.</p><div class="col">${list}</div>
+        ${uiBtn("Avbryt", "mafiaAccuse", {}, "secondary")}`;
+    }
+    return `<h1 class="center">Du er borger 🙂</h1>
+      <p class="center">Ble du blunket til? Vent litt, dø dramatisk og trykk her. ${countdown(g.endsAt)} s</p>
+      ${roundBtn("💀 Jeg ble drept", "killed", {}, "buzzer bad")}
+      ${uiBtn("☝️ Anklag noen", "mafiaAccuse", {}, "huge-btn secondary")}`;
   }
 
   function roundTenk(g) {

@@ -281,7 +281,7 @@
       const on = selected.has(g.id);
       return `<label class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
         <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
-        <span class="grow"><b>${esc(g.title)}</b><small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
+        <span class="grow"><b>${esc(g.title)}</b>${g.recommended ? ` <span class="tag ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+ deltakere</span>` : ""}<small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
         <span class="minutes">${g.minutes} min</span>
       </label>`;
     }).join("");
@@ -432,7 +432,8 @@
       reaksjon: roundReaksjon,
       estimat: roundEstimat,
       gruva: roundGruva,
-      bilde: roundBilde
+      bilde: roundBilde,
+      mafia: roundMafia
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -716,6 +717,24 @@
   }
 
   // ---------- Minirunder ----------
+
+  function roundMafia(g) {
+    const figs = g.players.map(p => `<div class="mafia-fig ${p.dead ? "dead" : ""} ${g.mafia && g.mafia.id === p.id ? "is-mafia" : ""}">
+        ${figureSvg(p.figure, p.upgrades, { size: 90 })}<b>${esc(p.name)}</b>
+        ${p.dead ? `<span>${p.dead === "wrong" ? "☝️ Feil anklage" : "💀 Drept"}</span>` : ""}
+        ${g.mafia && g.mafia.id === p.id ? `<span class="tag pink">MAFIA</span>` : ""}
+      </div>`).join("");
+    const events = g.events.length ? `<div class="mafia-events">${g.events.map(e => `<div>${esc(e)}</div>`).join("")}</div>` : "";
+    let head = "";
+    if (g.step === "roles") {
+      head = title("Se på mobilen – i hemmelighet!", "Blunke-mafia") + `<p class="center" style="font-size:1.4em">Én av dere er mafia. Starter om ${countdown(g.endsAt)} s</p>`;
+    } else if (g.step === "play") {
+      head = title("Mafiaen er blant oss …", "Blunke-mafia") + `<p class="center" style="font-size:1.4em">Se hverandre i øynene. Blir du blunket til, dør du. ${countdown(g.endsAt)} s</p>`;
+    } else {
+      head = title(g.result || "", g.mafiaWon ? "Mafiaen vant!" : "Borgerne vant!");
+    }
+    return `${head}<div class="mafia-figs">${figs}</div>${events}`;
+  }
 
   function progress(done, total, word) {
     return `<p class="center muted" style="font-size:1.2em">${done} / ${total} ${word}</p>`;
