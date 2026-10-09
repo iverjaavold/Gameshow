@@ -5,8 +5,9 @@ En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker
 
 ## Slik spiller dere
 
-1. Åpne appen på TV/PC og trykk **«Lag nytt spill på hovedskjermen»**. Du får en kode på 4 tegn.
-2. Spillerne åpner appen på mobilen, skriver koden, velger navn og lager figuren sin.
+1. Åpne appen på TV/PC og trykk **«Lag nytt spill på hovedskjermen»**. Lobbyen viser en QR-kode.
+2. Spillerne scanner QR-koden med mobilen (eller bruker «Del lenke»), velger navn og lager figuren sin.
+   Koden på 4 tegn står fortsatt lite øverst, for den som heller vil skrive den inn på forsiden.
 3. I lobbyen krysser hosten av hvilke spill som skal være med (alle er valgt fra start).
    Appen viser omtrentlig spilletid, setter opp rekkefølgen selv og legger finalen sist.
    «Lagre oppsett» husker utvalget på denne maskinen til neste gang.
@@ -62,6 +63,7 @@ gameshow/
 ├── css/                base.css, game.css (felles), host.css, player.css
 └── js/
     ├── common.js       Felles: API, sanntid, nedtelling, animasjoner, figurtegning
+    ├── qrcode.js       QR-generator (Kazuhiko Arase, MIT) til QR-koden i lobbyen
     ├── main.js         Forsiden
     ├── host.js         Hovedskjermen
     └── player.js       Mobilen
