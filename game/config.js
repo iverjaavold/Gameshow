@@ -57,7 +57,7 @@ module.exports = {
   // Maks mulige poeng per spill (brukes til betting). Spill som mangler her, kan ikke få betting.
   ROUND_MAX_POINTS: {
     r1: 1000, r2: 2000, r3: 1500, r4: 900, r5: 1500, r6: 500, r7: 1500, r8: 400, r9: 1000,
-    dyr: 600, tenk: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
+    dyr: 600, tenk: 1500, mafia: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
   },
 
   // Runde 1 – Hvelvet
@@ -146,19 +146,16 @@ module.exports = {
     QUESTIONS: 5,
     BUZZ_SECONDS: 10, // trykker ingen innen dette, hoppes spørsmålet over
     ANSWER_SECONDS: 5, // tid den som buzzet har til å svare
-    REVEAL_SECONDS: 3,
+    REVEAL_SECONDS: 5, // så lenge riktig svar vises før neste spørsmål
     CORRECT_POINTS: 200,
     WRONG_POINTS: -100
   },
 
   // Runde 10 – Finale
   R10: {
-    BASE_POT: 1000,
-    POT_PER_CORRECT: 250,
-    QUESTIONS: 8,
-    QUESTION_SECONDS: 10,
-    REVEAL_SECONDS: 3,
-    CHOICE_SECONDS: 30,
+    POT: 3000,
+    TALK_SECONDS: 45, // finalistene prater og prøver å overtale hverandre, tilskuerne satser
+    CHOICE_SECONDS: 20,
     REVEAL_END_SECONDS: 10,
     SPECTATOR_BET_PAYOUT: 2 // riktig spådom gir innsats × dette i gevinst
   },
@@ -175,7 +172,8 @@ module.exports = {
   // Minirunde – Gjett 30 sekunder
   TRETTI: {
     TARGET_SECONDS: 30,
-    MAX_SECONDS: 60, // den som ikke har trykket etter dette, regnes som 30 sekunder unna
+    MAX_SECONDS: 60, // den som ikke har stoppet så lenge etter sin egen start, regnes som 30 sekunder unna
+    ROUND_SECONDS: 120, // hele runden: den som ikke har startet innen dette, regnes også som 30 sekunder unna
     MISSING_OFF_SECONDS: 30,
     POINTS_PER_SECOND_OFF: -50,
     REVEAL_SECONDS: 12
@@ -192,10 +190,24 @@ module.exports = {
   // Minirunde – Auksjonen
   AUKSJON: {
     BID_SECONDS: 20,
-    POINT_PRIZES: [200, 500, 1000],
-    CARD_PRIZES: ["steal250", "steal500", "steal1000", "uno", "block"],
-    POINTS_CHANCE: 0.5,
+    // Pakken inneholder et tilfeldig antall poeng mellom disse (alltid positivt)
+    PRIZE_MIN: 100,
+    PRIZE_MAX: 1500,
+    PRIZE_STEP: 50,
     REVEAL_SECONDS: 6
+  },
+
+  // Minirunde – Blunke-mafia
+  MAFIA: {
+    MIN_PLAYERS: 3, // under dette hoppes leken over
+    RECOMMENDED_PLAYERS: 5,
+    ROLE_SECONDS: 10, // alle ser rollen sin i hemmelighet
+    PLAY_SECONDS: 180, // går tiden ut, vinner mafiaen
+    REVEAL_SECONDS: 10,
+    KILL_POINTS: 150, // til mafiaen per drap
+    MAFIA_WIN_POINTS: 600,
+    CATCH_POINTS: 500, // til den som avslører mafiaen
+    SURVIVOR_POINTS: 200 // til hver borger som lever når mafiaen blir tatt
   },
 
   // Minirunde – Reaksjonstest (F1-start)

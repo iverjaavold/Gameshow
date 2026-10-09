@@ -288,6 +288,9 @@
         }
         return;
       }
+      case "mafiaAccuse":
+        ui.mafiaAccuse = !ui.mafiaAccuse;
+        break;
       case "finalOutcome":
         ui.finalOutcome = data.v;
         break;
@@ -572,7 +575,8 @@
       reaksjon: roundReaksjon,
       estimat: roundEstimat,
       gruva: roundGruva,
-      bilde: roundBilde
+      bilde: roundBilde,
+      mafia: roundMafia
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -596,11 +600,12 @@
         ${roundBtn("BUZZ!", "buzz", {}, "buzzer")}`;
     }
     if (g.step === "answering") {
+      if (g.timeUp) return head + waiting("Tiden er ute!", `Riktig svar: <b>${esc(g.answer)}</b>`);
       return head + (g.iBuzzed
         ? `<div class="waiting"><h1>Du var først! Svar høyt!</h1><div class="big-number">${countdown(g.answerEndsAt)}</div></div>`
         : waiting(`${esc(g.buzzerName)} svarer …`, "Følg med på hovedskjermen."));
     }
-    return head + waiting(esc(g.result || ""), "Neste spørsmål kommer …");
+    return head + waiting(esc(g.result || ""), g.answer ? `Riktig svar: <b>${esc(g.answer)}</b>` : "Neste spørsmål kommer …");
   }
 
   // ---------- Minirunder ----------
@@ -633,12 +638,45 @@
   function roundTretti(g) {
     if (g.step === "running") {
       if (g.pressed) return waiting("Registrert!", "Venter på de andre …");
-      return `<h1 class="center">Trykk etter 30 sekunder</h1><p class="center">Ingen klokke. Tell i hodet!</p>
-        ${roundBtn("NÅ!", "press", {}, "buzzer good")}`;
+      if (!g.started) {
+        return `<h1 class="center">Gjett 30 sekunder</h1><p class="center">Trykk START når du er klar. Da starter tiden din.</p>
+          ${roundBtn("START", "start", {}, "buzzer good")}`;
+      }
+      return `<h1 class="center">Tiden går!</h1><p class="center">Ingen klokke. Tell i hodet, og trykk STOPP etter 30 sekunder.</p>
+        ${roundBtn("STOPP", "press", {}, "buzzer bad")}`;
     }
     const m = g.mine;
     if (!m) return waiting("Ferdig!");
     return waiting(m.seconds === null ? "Du trykket ikke!" : `${m.seconds} sekunder`, `${m.off} s unna · ${m.points} poeng`);
+  }
+
+  function roundMafia(g) {
+    if (g.step === "reveal" || !g.alive) ui.mafiaAccuse = false;
+    if (g.step === "reveal") {
+      return waiting(g.mafiaName ? `Mafiaen var ${esc(g.mafiaName)}!` : "Blunke-mafia", esc(g.result || ""));
+    }
+    if (g.isMafia) {
+      return `<div class="waiting mafia-role"><div class="mafia-icon">🕶️</div><h1>Du er MAFIA</h1>
+        <p class="big">Blunk med ett øye til folk for å drepe dem. Ikke bli sett!</p>
+        ${g.step === "play" ? `<p class="big">Drept så langt: <b>${g.kills}</b></p>` : `<p class="muted">Starter om ${countdown(g.endsAt)} s – skjul skjermen!</p>`}</div>`;
+    }
+    if (!g.alive) {
+      return waiting(g.deadHow === "wrong" ? "Feil anklage – du er ute!" : "Du er død 💀", "Hold tett om hvem det var!");
+    }
+    if (g.step === "roles") {
+      return `<div class="waiting"><div class="mafia-icon">🙂</div><h1>Du er borger</h1>
+        <p class="big">Finn mafiaen før den blunker til deg! Starter om ${countdown(g.endsAt)} s</p></div>`;
+    }
+    if (ui.mafiaAccuse) {
+      const list = g.targets.map(t => sendBtn(esc(t.name), "round", { action: "accuse", target: t.id }, "secondary",
+        `Anklage ${t.name}? Tar du feil, er du ute.`)).join("");
+      return `<h1>Hvem er mafiaen?</h1><p>Tar du feil, er du ute.</p><div class="col">${list}</div>
+        ${uiBtn("Avbryt", "mafiaAccuse", {}, "secondary")}`;
+    }
+    return `<h1 class="center">Du er borger 🙂</h1>
+      <p class="center">Ble du blunket til? Vent litt, dø dramatisk og trykk her. ${countdown(g.endsAt)} s</p>
+      ${roundBtn("💀 Jeg ble drept", "killed", {}, "buzzer bad")}
+      ${uiBtn("☝️ Anklag noen", "mafiaAccuse", {}, "huge-btn secondary")}`;
   }
 
   function roundTenk(g) {
@@ -938,8 +976,9 @@
   function roundFinal(g) {
     const names = g.finalistNames.map(esc).join(" og ");
     if (g.finalist) {
-      if (g.step === "pot" && g.question) {
-        return `<p class="muted">Finale · spørsmål ${g.index}/${g.total}</p><h1>Bygg potten: ${g.pot}</h1>${questionButtons(g.question)}`;
+      if (g.step === "talk") {
+        return `<div class="waiting"><h1>Potten: ${g.pot}</h1><p class="big">Prat sammen! Overbevis den andre om å dele. ${countdown(g.endsAt)}</p>
+          <p class="muted">Snart velger dere «Del» eller «Stjel» i hemmelighet.</p></div>`;
       }
       if (g.step === "choice") {
         return `<h1>Potten: ${g.pot}</h1><p class="big">Del eller stjel? ${countdown(g.endsAt)}</p>
@@ -950,16 +989,16 @@
           </div>`;
       }
       if (g.reveal) return waiting(esc(g.reveal.outcome) + "!", `Potten var ${g.pot}.`);
-      return waiting("Finale", `Potten: ${g.pot}`);
+      return waiting("Del eller stjel", `Potten: ${g.pot}`);
     }
     // Tilskuer
     if (g.reveal) {
       const won = g.myBet && g.outcomes.find(o => o.id === g.myBet.outcome)?.label === g.reveal.outcome;
       return waiting(esc(g.reveal.outcome) + "!", g.myBet ? (won ? "Du spådde riktig!" : "Feil spådom.") : "");
     }
-    if (g.step !== "pot") return waiting("Finale", `${names} velger nå … Innsatsene er låst.`);
+    if (g.step !== "talk") return waiting("Del eller stjel", `${names} velger nå … Innsatsene er låst.`);
     const outcomes = g.outcomes.map(o => uiBtn(esc(o.label), "finalOutcome", { v: o.id }, ui.finalOutcome === o.id ? "selected" : "secondary")).join("");
-    return `<h1>Finale!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger?</p>
+    return `<h1>Del eller stjel!</h1><p>${names} spiller om potten (<b>${g.pot}</b>). Hva tror du de velger? ${countdown(g.endsAt)}</p>
       <div class="col">${outcomes}</div>
       ${amountForm("final-stake", "finalBet", g.maxStake, g.myBet ? g.myBet.stake : null, `Innsats (riktig gir ${g.payout}× gevinst)`)}
       ${g.myBet ? `<p class="center">Du har satset ${g.myBet.stake} på «${esc(g.outcomes.find(o => o.id === g.myBet.outcome).label)}».</p>` : ""}`;

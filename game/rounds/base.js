@@ -75,7 +75,7 @@ class Round {
   // Går videre av seg selv etter så mange sekunder (erstatter forrige automatikk).
   auto(fn, seconds) {
     this.cancelAuto();
-    this.autoAt = Date.now() + ms(seconds);
+    this.autoAt = this.game.now() + ms(seconds);
     this.autoTimer = this.timer(() => {
       this.autoTimer = null;
       this.autoAt = null;
@@ -100,7 +100,7 @@ class Round {
 
   // Tidspunkt (server-tid) så mange sekunder fram i tid
   at(seconds) {
-    return Date.now() + ms(seconds);
+    return this.game.now() + ms(seconds);
   }
 
   // ---------- Hjelpere ----------

@@ -82,7 +82,7 @@ class DrawRound extends Round {
     team.grid = Array(C.GRID * C.GRID).fill(null);
     team.endsAt = this.at(C.SECONDS_PER_FIGURE);
     team.timer = this.timer(() => {
-      team.feedback = { kind: "timeout", at: Date.now() };
+      team.feedback = { kind: "timeout", at: this.game.now() };
       this.nextFigure(team);
     }, C.SECONDS_PER_FIGURE);
   }
@@ -93,11 +93,11 @@ class DrawRound extends Round {
       const points = team.level * C.POINTS_PER_LEVEL;
       team.members.forEach(id => this.game.award(id, points));
       team.solved++;
-      team.feedback = { kind: "correct", at: Date.now() };
+      team.feedback = { kind: "correct", at: this.game.now() };
       this.nextFigure(team);
     } else {
       const wrong = team.target.filter((cell, i) => !sameCell(cell, team.grid[i])).length;
-      team.feedback = { kind: "wrong", at: Date.now(), wrong };
+      team.feedback = { kind: "wrong", at: this.game.now(), wrong };
     }
     this.changed();
   }

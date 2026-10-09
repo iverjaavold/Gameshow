@@ -213,9 +213,10 @@
       menu.push(button("Avslutt runden", "endRound", {}, "bad", "Avslutte runden nå?"));
     }
 
-    const pill = autoAt ? `<span class="auto-pill">Går videre om ${countdown(autoAt)} s</span>` : "";
+    const pill = autoAt ? `<span class="auto-pill">${view.paused ? "På pause" : `Går videre om ${countdown(autoAt)} s`}</span>` : "";
     if (p !== "lobby" && p !== "results") {
       buttons.unshift(`<button class="secondary planner-toggle" data-planner="1">📋 Velg spill videre</button>`);
+      buttons.unshift(view.paused ? button("▶ Fortsett", "resume", {}, "good") : button("⏸ Pause", "pause", {}, "secondary"));
     }
     const menuHtml = menu.length
       ? `<div class="menu ${showMenu ? "" : "hidden"}">${menu.join("")}</div><button class="menu-toggle" data-menu="1" title="Manuelle valg">⋯</button>`
@@ -280,7 +281,7 @@
       const on = selected.has(g.id);
       return `<label class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
         <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
-        <span class="grow"><b>${esc(g.title)}</b><small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
+        <span class="grow"><b>${esc(g.title)}</b>${g.recommended ? ` <span class="tag ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+ deltakere</span>` : ""}<small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
         <span class="minutes">${g.minutes} min</span>
       </label>`;
     }).join("");
@@ -431,7 +432,8 @@
       reaksjon: roundReaksjon,
       estimat: roundEstimat,
       gruva: roundGruva,
-      bilde: roundBilde
+      bilde: roundBilde,
+      mafia: roundMafia
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -670,12 +672,10 @@
       </div>`;
     const choices = g.reveal ? g.reveal.choices : [null, null];
     let middle = "";
-    if (g.step === "pot" && g.question) {
-      const info = g.question.revealed
-        ? `<p class="center">${g.correctNames.length ? `Riktig: ${g.correctNames.map(esc).join(", ")}` : "Ingen riktige."}</p>`
-        : `<p class="center muted">${g.answered} / 2 har svart</p>`;
-      middle = questionBlock(g.question, { counter: `${g.index}/${g.total}`, banner: "Bygg potten" }) + info
-        + `<p class="center muted">${g.betsPlaced} av ${g.spectators} tilskuere har satset</p>`;
+    if (g.step === "talk") {
+      middle = `<p class="event" style="font-size:2em">Prat sammen – del eller stjel?</p>
+        <p class="center">Overbevis hverandre! Valget kommer om ${countdown(g.endsAt)} s</p>
+        <p class="center muted">${g.betsPlaced} av ${g.spectators} tilskuere har satset</p>`;
     } else if (g.step === "choice") {
       middle = `<p class="event" style="font-size:2em">Del eller stjel?</p><p class="center">${g.chosen} / 2 har valgt · ${countdown(g.endsAt)}</p>`;
     } else if (g.reveal) {
@@ -705,16 +705,36 @@
       body = `<div class="row" style="justify-content:center;gap:24px">
           ${figureSvg(g.buzzer.figure, g.buzzer.upgrades, { size: 110 })}
           <div><div class="event" style="font-size:2.4em">${esc(g.buzzer.name)} svarer!</div>
-          <div class="big-number">${countdown(g.answerEndsAt)}</div></div>
+          ${g.timeUp ? `<div class="event" style="font-size:1.6em">Tiden er ute!</div>` : `<div class="big-number">${countdown(g.answerEndsAt)}</div>`}</div>
         </div>
-        <p class="center"><span class="spoiler" title="Hold musen over for å se fasiten">Fasit: ${esc(g.answer)}</span></p>`;
+        ${g.timeUp
+          ? `<p class="center" style="font-size:1.6em">Riktig svar: <b>${esc(g.answer)}</b></p>`
+          : `<p class="center"><span class="spoiler" title="Hold musen over for å se fasiten">Fasit: ${esc(g.answer)}</span></p>`}`;
     } else {
-      body = `<div class="event">${esc(g.result || "")}</div><p class="center" style="font-size:1.6em">Svar: <b>${esc(g.answer)}</b></p>`;
+      body = `<div class="event">${esc(g.result || "")}</div><p class="center" style="font-size:1.6em">Riktig svar: <b>${esc(g.answer)}</b></p>`;
     }
     return `${head}<div class="quiz-q lyn-q">${esc(g.question)}</div>${body}`;
   }
 
   // ---------- Minirunder ----------
+
+  function roundMafia(g) {
+    const figs = g.players.map(p => `<div class="mafia-fig ${p.dead ? "dead" : ""} ${g.mafia && g.mafia.id === p.id ? "is-mafia" : ""}">
+        ${figureSvg(p.figure, p.upgrades, { size: 90 })}<b>${esc(p.name)}</b>
+        ${p.dead ? `<span>${p.dead === "wrong" ? "☝️ Feil anklage" : "💀 Drept"}</span>` : ""}
+        ${g.mafia && g.mafia.id === p.id ? `<span class="tag pink">MAFIA</span>` : ""}
+      </div>`).join("");
+    const events = g.events.length ? `<div class="mafia-events">${g.events.map(e => `<div>${esc(e)}</div>`).join("")}</div>` : "";
+    let head = "";
+    if (g.step === "roles") {
+      head = title("Se på mobilen – i hemmelighet!", "Blunke-mafia") + `<p class="center" style="font-size:1.4em">Én av dere er mafia. Starter om ${countdown(g.endsAt)} s</p>`;
+    } else if (g.step === "play") {
+      head = title("Mafiaen er blant oss …", "Blunke-mafia") + `<p class="center" style="font-size:1.4em">Se hverandre i øynene. Blir du blunket til, dør du. ${countdown(g.endsAt)} s</p>`;
+    } else {
+      head = title(g.result || "", g.mafiaWon ? "Mafiaen vant!" : "Borgerne vant!");
+    }
+    return `${head}<div class="mafia-figs">${figs}</div>${events}`;
+  }
 
   function progress(done, total, word) {
     return `<p class="center muted" style="font-size:1.2em">${done} / ${total} ${word}</p>`;
@@ -748,8 +768,8 @@
 
   function roundTretti(g) {
     if (g.step === "running") {
-      return `<div class="hero"><div class="big-number now-big">NÅ!</div>
-        <p style="font-size:1.6em">Trykk på mobilen når du tror det har gått nøyaktig 30 sekunder.</p>
+      return `<div class="hero"><div class="round-no">Gjett 30 sekunder</div><h1 class="mid-title">Start når du vil!</h1>
+        <p style="font-size:1.6em">Trykk START på mobilen når du er klar, og STOPP når du tror det har gått nøyaktig 30 sekunder.</p>
         <p class="muted">Ingen klokke. Ingen hjelp. Lykke til!</p></div>`;
     }
     const rows = g.rows.map(r => [`<b>${esc(r.name)}</b>`, r.seconds === null ? "Trykket ikke" : `${r.seconds} s`, `${r.off} s unna`, r.points ? `${r.points}` : "0"]);

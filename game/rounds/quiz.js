@@ -27,8 +27,9 @@ function drawQuestion(game, category) {
 
 class QuizQuestion {
   constructor(game, category, seconds) {
+    this.game = game;
     this.q = drawQuestion(game, category);
-    this.startedAt = Date.now();
+    this.startedAt = game.now();
     this.endsAt = this.startedAt + ms(seconds);
     this.answers = new Map(); // playerId -> { choice, at }
     this.revealed = false;
@@ -38,7 +39,7 @@ class QuizQuestion {
     choice = Number(choice);
     if (this.revealed || this.answers.has(playerId)) return false;
     if (!Number.isInteger(choice) || choice < 0 || choice > 3) return false;
-    this.answers.set(playerId, { choice, at: Date.now() });
+    this.answers.set(playerId, { choice, at: this.game.now() });
     return true;
   }
 

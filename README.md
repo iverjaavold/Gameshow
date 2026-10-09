@@ -1,6 +1,6 @@
 # Gameshow
 
-Festspill i gameshow-stil med 10 store runder og 8 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
+Festspill i gameshow-stil med 10 store runder og 9 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
 En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker å installere.
 
 ## Slik spiller dere
@@ -14,6 +14,7 @@ En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker
    og **grønn/rød** der et menneske må vurdere et svar (mime, kortstokken i runde 7 og Lynrunden).
    Alt annet – nedtellinger, neste spørsmål, avsløringer og overganger – skjer av seg selv.
    «⋯» nederst til høyre har manuelle overstyringer hvis noe skulle stå fast.
+   «⏸ Pause» nederst fryser alle nedtellinger og automatikk til hosten trykker «▶ Fortsett».
 5. Mister noen forbindelsen, åpner de siden igjen. Mobilen husker spilleren. På en ny mobil skriver de samme kode og navn.
 
 ### Del og tilbakemelding
@@ -31,10 +32,10 @@ så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet
 ## Spillene
 
 **Store runder:** 1 Hvelvet · 2 Kongen på haugen · 3 Tegn etter beskrivelse · 4 Forklar-mime ·
-5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Finale
+5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Del eller stjel (finalen)
 
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
-Reaksjonstest · Estimering · Gruva · Bildezoom
+Reaksjonstest · Estimering · Gruva · Bildezoom · Blunke-mafia (anbefalt 5+ deltakere)
 
 Regler som før var knyttet til rundenumre, skaleres etter antall valgte spill (se `game/config.js`):
 innloggingen stenger halvveis, shopen stenger når 70 % er spilt, og betting og «Kjøp en medspiller»

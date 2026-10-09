@@ -5,6 +5,7 @@
 
 const GS = (function() {
   let serverOffset = 0; // serverens klokke minus vår klokke
+  let pausedNow = null; // spillklokken står her mens spillet er på pause
 
   function esc(value) {
     return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -28,6 +29,7 @@ const GS = (function() {
   }
 
   function now() {
+    if (pausedNow !== null) return pausedNow;
     return Date.now() + serverOffset;
   }
 
@@ -42,6 +44,8 @@ const GS = (function() {
       source.onmessage = event => {
         const view = JSON.parse(event.data);
         if (view.serverNow) serverOffset = view.serverNow - Date.now();
+        pausedNow = view.paused ? view.serverNow : null;
+        showPause(!!view.paused, view.role === "host");
         onState(view);
       };
       source.addEventListener("kicked", () => {
@@ -358,6 +362,23 @@ const GS = (function() {
 
   function mineHtml(g, cls = "") {
     return `<span class="mine-value ${cls}" data-mine data-start="${g.startedAt}" data-sec-ms="${g.secMs}" data-pps="${g.pps}" data-accel="${g.accel}"></span>`;
+  }
+
+  // Pause-skjerm over alt annet. Hosten får en knapp for å fortsette.
+  function showPause(paused, isHost) {
+    let el = document.querySelector(".pause-overlay");
+    if (!paused) {
+      if (el) el.remove();
+      return;
+    }
+    if (el) return;
+    el = document.createElement("div");
+    el.className = "pause-overlay";
+    el.innerHTML = `<div class="pause-box"><div class="pause-icon">⏸</div><h1>Pause</h1>
+      ${isHost
+        ? `<button class="huge-btn" data-send='${attr({ type: "resume", data: {} })}'>▶ Fortsett</button>`
+        : `<p>Venter på at hosten fortsetter …</p>`}</div>`;
+    document.body.appendChild(el);
   }
 
   // Deler lenken til et spill. Bruker telefonens delingsmeny hvis den finnes, ellers kopierer lenken.

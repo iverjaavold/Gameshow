@@ -21,7 +21,7 @@ class ReactionRound extends Round {
     const lastLight = this.lightsAt + this.lightMs * (C.LIGHTS - 1);
     this.outAt = lastLight + ms(randFloat(C.MIN_WAIT_SECONDS, C.MAX_WAIT_SECONDS));
     this.reports = new Map(); // spiller -> { ms } eller { falseStart: true }
-    this.auto(() => this.reveal(), (this.outAt - Date.now()) / ms(1) + C.REPORT_SECONDS);
+    this.auto(() => this.reveal(), (this.outAt - this.game.now()) / ms(1) + C.REPORT_SECONDS);
     this.changed();
   }
 
@@ -29,7 +29,7 @@ class ReactionRound extends Round {
     if (this.step !== "running") throw new GameError("For sent.");
     if (this.reports.has(player.id)) return;
     // Kommer trykket før lysene har slukket (med litt slingringsmonn), er det tyvstart uansett.
-    const early = Date.now() < this.outAt - 150;
+    const early = this.game.now() < this.outAt - 150;
     if (data.falseStart || early) {
       this.reports.set(player.id, { falseStart: true });
     } else {
@@ -83,7 +83,7 @@ class ReactionRound extends Round {
 
   botAct(bot) {
     if (this.step !== "running" || this.reports.has(bot.id)) return;
-    if (Date.now() >= this.outAt) this.report(bot, this.chance(0.05) ? { falseStart: true } : { ms: randInt(170, 450) });
+    if (this.game.now() >= this.outAt) this.report(bot, this.chance(0.05) ? { falseStart: true } : { ms: randInt(170, 450) });
   }
 
   timing() {

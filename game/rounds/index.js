@@ -107,13 +107,14 @@ const GAMES = {
     ]
   },
   r10: {
-    module: () => require("./r10-finale"), big: true, type: "strategi", minutes: 8,
-    title: "Finale: Del eller stjel", tag: "De to beste",
-    desc: "De to beste bygger en pott – og velger del eller stjel.",
+    module: () => require("./r10-finale"), big: true, type: "strategi", minutes: 3,
+    title: "Del eller stjel", tag: "De to beste",
+    desc: "De to beste spiller om potten – del eller stjel?",
     rules: [
-      "De to spillerne med flest poeng går til finalen.",
-      "Finalistene bygger en stor pott med raske spørsmål.",
-      "Til slutt: «Del» eller «Stjel» – i hemmelighet.",
+      "De to spillerne med flest poeng går til finalen og spiller om en pott på 3000.",
+      "Først får de prate og prøve å overtale hverandre.",
+      "Så velger begge «Del» eller «Stjel» – i hemmelighet.",
+      "Begge deler: potten deles. Én stjeler: hen tar alt. Begge stjeler: ingen får noe.",
       "Alle andre satser poeng på hva finalistene velger!"
     ]
   },
@@ -133,10 +134,10 @@ const GAMES = {
   tretti: {
     module: () => require("./mini-tretti"), type: "konkurranse", minutes: 2,
     title: "Gjett 30 sekunder", tag: "Minirunde",
-    desc: "Trykk når du tror det har gått nøyaktig 30 sekunder.",
+    desc: "Start din egen tid og stopp når du tror det har gått nøyaktig 30 sekunder.",
     rules: [
-      "Når det står «Nå!», starter tiden. Ingen klokke vises.",
-      "Trykk på mobilen når du tror det har gått nøyaktig 30 sekunder.",
+      "Trykk «START» på mobilen når du er klar – da starter din egen tid. Ingen klokke vises.",
+      "Trykk «STOPP» når du tror det har gått nøyaktig 30 sekunder.",
       "−50 poeng per sekund du bommer med."
     ]
   },
@@ -153,11 +154,24 @@ const GAMES = {
   auksjon: {
     module: () => require("./mini-auksjon"), type: "strategi", minutes: 1,
     title: "Auksjonen", tag: "Hemmelig pakke",
-    desc: "By på en hemmelig pakke med poeng eller et shop-kort. Kommer opptil 4 ganger.",
+    desc: "By på en hemmelig pakke med et tilfeldig antall poeng. Kommer opptil 4 ganger.",
     rules: [
-      "En hemmelig pakke er til salgs. Innholdet er alltid positivt.",
-      "Den inneholder poeng eller et kort fra shopen.",
-      "By i hemmelighet. Høyeste bud betaler og får pakken."
+      "En hemmelig pakke med et tilfeldig antall poeng er til salgs – mellom 100 og 1500.",
+      "Innholdet er alltid positivt, men du vet ikke hvor mye.",
+      "By i hemmelighet. Den som byr mest, betaler budet sitt og får pakken."
+    ]
+  },
+  mafia: {
+    module: () => require("./mini-mafia"), type: "strategi", minutes: 4, recommended: 5,
+    title: "Blunke-mafia", tag: "Minirunde – anbefalt 5+ deltakere",
+    desc: "Én er mafia og dreper ved å blunke. Finn mafiaen før alle er døde! Anbefalt 5+ deltakere.",
+    rules: [
+      "Se på mobilen i hemmelighet: én av dere er MAFIA.",
+      "Mafiaen dreper ved å blunke med ett øye til noen – uten at andre ser det.",
+      "Blir du blunket til: vent litt, dø dramatisk og trykk «Jeg ble drept».",
+      "Tror du at du vet hvem det er? Anklag! Feil anklage, og du er ute.",
+      "Borgerne vinner hvis mafiaen blir tatt. Mafiaen vinner hvis tiden går ut.",
+      "Anbefalt for mer enn 4 deltakere."
     ]
   },
   reaksjon: {
