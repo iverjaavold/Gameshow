@@ -612,7 +612,7 @@ class Game {
         victimId: target.id,
         value: card.value,
         endsAt: Date.now() + ms(config.THEFT_RESPONSE_SECONDS),
-        timer: setTimeout(() => this.resolveTheft("none"), ms(config.THEFT_RESPONSE_SECONDS))
+        timer: setTimeout(() => this.resolveTheft("timeout"), ms(config.THEFT_RESPONSE_SECONDS))
       };
       this.addFeed("1 handling utført");
       this.changed();
@@ -665,6 +665,10 @@ class Game {
     if (response === "block") {
       this.toast(thief, `${victim.name} blokkerte tyveriet!`);
       this.toast(victim, "Du blokkerte tyveriet.");
+    } else if (response === "timeout") {
+      // Offeret ventet ut tiden: ingen poeng flyttes, offeret mistet bare tiden (shopen var sperret).
+      this.toast(thief, `${victim.name} ventet ut tiden. Tyveriet ga ingen poeng.`);
+      this.toast(victim, "Du ventet ut tiden og beholdt poengene dine.");
     } else if (response === "uno") {
       const moved = -this.adjust(thief.id, -theft.value);
       this.adjust(victim.id, moved);
