@@ -3,7 +3,8 @@
   Nedtelling fra 10, så 5 spørsmål på hovedskjermen. Alle har en rød buzzer på mobilen.
   Først på buzzeren svarer høyt og har 5 sekunder. Hosten trykker grønn (+200) eller rød (−100),
   og appen går videre av seg selv. Trykker ingen innen 10 sekunder, hoppes spørsmålet over.
-  Fasiten vises sløret for hosten (hold musen over for å se den) og avsløres etter vurderingen.
+  Fasiten vises sløret for hosten (hold musen over for å se den) mens noen svarer. Når svartiden
+  er ute, vises den åpent for alle – også på mobilene – og den står også etter vurderingen.
 */
 
 const config = require("../config");
@@ -36,6 +37,7 @@ class LightningRound extends Round {
     this.step = "question";
     this.buzzerId = null;
     this.result = null;
+    this.timeUp = false;
     this.auto(() => this.skip(), C.BUZZ_SECONDS);
     this.changed();
   }
@@ -47,6 +49,12 @@ class LightningRound extends Round {
     // Svartiden vises som nedtelling. Hosten vurderer – appen venter på grønn/rød.
     this.cancelAuto();
     this.answerEndsAt = this.at(C.ANSWER_SECONDS);
+    // Når svartiden er ute, vises fasiten for alle mens hosten vurderer.
+    this.timer(() => {
+      if (this.step !== "answering") return;
+      this.timeUp = true;
+      this.changed();
+    }, C.ANSWER_SECONDS);
     this.changed();
   }
 
@@ -116,6 +124,7 @@ class LightningRound extends Round {
       buzzEndsAt: this.step === "question" ? this.autoAt : null,
       buzzer: this.buzzerId ? this.publicPlayer(this.buzzerId) : null,
       answerEndsAt: this.step === "answering" ? this.answerEndsAt : null,
+      timeUp: this.timeUp,
       result: this.step === "reveal" ? this.result : null,
       actions,
       menu
@@ -133,6 +142,8 @@ class LightningRound extends Round {
       iBuzzed: this.buzzerId === player.id,
       buzzerName: this.buzzerId ? this.name(this.buzzerId) : null,
       answerEndsAt: this.step === "answering" ? this.answerEndsAt : null,
+      timeUp: this.timeUp,
+      answer: this.timeUp || this.step === "reveal" ? this.q.a : null,
       result: this.step === "reveal" ? this.result : null
     };
   }

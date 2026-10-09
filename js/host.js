@@ -704,11 +704,13 @@
       body = `<div class="row" style="justify-content:center;gap:24px">
           ${figureSvg(g.buzzer.figure, g.buzzer.upgrades, { size: 110 })}
           <div><div class="event" style="font-size:2.4em">${esc(g.buzzer.name)} svarer!</div>
-          <div class="big-number">${countdown(g.answerEndsAt)}</div></div>
+          ${g.timeUp ? `<div class="event" style="font-size:1.6em">Tiden er ute!</div>` : `<div class="big-number">${countdown(g.answerEndsAt)}</div>`}</div>
         </div>
-        <p class="center"><span class="spoiler" title="Hold musen over for å se fasiten">Fasit: ${esc(g.answer)}</span></p>`;
+        ${g.timeUp
+          ? `<p class="center" style="font-size:1.6em">Riktig svar: <b>${esc(g.answer)}</b></p>`
+          : `<p class="center"><span class="spoiler" title="Hold musen over for å se fasiten">Fasit: ${esc(g.answer)}</span></p>`}`;
     } else {
-      body = `<div class="event">${esc(g.result || "")}</div><p class="center" style="font-size:1.6em">Svar: <b>${esc(g.answer)}</b></p>`;
+      body = `<div class="event">${esc(g.result || "")}</div><p class="center" style="font-size:1.6em">Riktig svar: <b>${esc(g.answer)}</b></p>`;
     }
     return `${head}<div class="quiz-q lyn-q">${esc(g.question)}</div>${body}`;
   }

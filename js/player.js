@@ -596,11 +596,12 @@
         ${roundBtn("BUZZ!", "buzz", {}, "buzzer")}`;
     }
     if (g.step === "answering") {
+      if (g.timeUp) return head + waiting("Tiden er ute!", `Riktig svar: <b>${esc(g.answer)}</b>`);
       return head + (g.iBuzzed
         ? `<div class="waiting"><h1>Du var først! Svar høyt!</h1><div class="big-number">${countdown(g.answerEndsAt)}</div></div>`
         : waiting(`${esc(g.buzzerName)} svarer …`, "Følg med på hovedskjermen."));
     }
-    return head + waiting(esc(g.result || ""), "Neste spørsmål kommer …");
+    return head + waiting(esc(g.result || ""), g.answer ? `Riktig svar: <b>${esc(g.answer)}</b>` : "Neste spørsmål kommer …");
   }
 
   // ---------- Minirunder ----------

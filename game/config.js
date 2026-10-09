@@ -146,7 +146,7 @@ module.exports = {
     QUESTIONS: 5,
     BUZZ_SECONDS: 10, // trykker ingen innen dette, hoppes spørsmålet over
     ANSWER_SECONDS: 5, // tid den som buzzet har til å svare
-    REVEAL_SECONDS: 3,
+    REVEAL_SECONDS: 5, // så lenge riktig svar vises før neste spørsmål
     CORRECT_POINTS: 200,
     WRONG_POINTS: -100
   },
