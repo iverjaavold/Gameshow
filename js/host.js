@@ -29,6 +29,7 @@
   }
 
   els.code.textContent = code;
+  const joinQr = qrSvg(GS.joinUrl(code));
   els.shareButton.addEventListener("click", () => GS.shareGame(code, els.shareButton));
   document.getElementById("feedback-button").addEventListener("click", () => GS.openFeedback(`hovedskjerm ${code}`));
   let view = null;
@@ -138,6 +139,14 @@
   function roundButton(a, cls = "") {
     const { label, style, ...data } = a;
     return button(label, "round", data, `${cls} ${style || ""} big-control`);
+  }
+
+  // QR-kode (SVG) som lenker rett til innloggingen for dette spillet
+  function qrSvg(url) {
+    const qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true, alt: "QR-kode for å bli med" });
   }
 
   // ---------- Tegning ----------
@@ -252,8 +261,8 @@
     return `<div class="lobby">
       <div class="col lobby-left">
         <div class="join-big">
-          <p class="muted" style="font-size:1.3em">Skriv inn koden på mobilen</p>
-          <div class="code">${esc(code)}</div>
+          <p class="muted" style="font-size:1.3em">Scan QR-koden med mobilen for å bli med</p>
+          <div class="join-qr">${joinQr}</div>
           <button class="secondary" data-share>Del lenke</button>
         </div>
         <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>

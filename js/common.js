@@ -382,8 +382,13 @@ const GS = (function() {
   }
 
   // Deler lenken til et spill. Bruker telefonens delingsmeny hvis den finnes, ellers kopierer lenken.
+  // Lenken spillerne bruker for å bli med (går rett til innloggingen)
+  function joinUrl(code) {
+    return `${location.origin}/spill.html?kode=${encodeURIComponent(code)}`;
+  }
+
   async function shareGame(code, button) {
-    const url = `${location.origin}/?kode=${encodeURIComponent(code)}`;
+    const url = joinUrl(code);
     if (navigator.share) {
       try {
         await navigator.share({ title: "Gameshow", text: `Bli med i Gameshow! Koden er ${code}.`, url });
@@ -468,6 +473,6 @@ const GS = (function() {
   return {
     esc, attr, api, connect, now, startCountdowns, countdown, render, onFrame,
     figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml,
-    shareGame, openFeedback
+    shareGame, openFeedback, joinUrl
   };
 })();

@@ -125,7 +125,8 @@ body.compact .board { height: 22vh; }
 
 .join-big { text-align: center; }
 .join-big [data-share] { margin-top: 14px; }
-.join-big .code { font-size: clamp(4rem, 12vw, 10rem); font-weight: 900; letter-spacing: 14px; color: var(--yellow); line-height: 1; }
+.join-qr { width: min(340px, 60vw); margin: 0 auto; padding: 14px; background: white; border-radius: 18px; }
+.join-qr svg { display: block; width: 100%; height: auto; }
 .lobby-figs { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
 .lobby-fig { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; font-weight: 800; }
 .lobby-fig .kick { position: absolute; top: -6px; right: -6px; padding: 2px 8px; font-size: .8em; border-radius: 999px; }
@@ -169,7 +170,6 @@ body.compact .board { height: 22vh; }
 /* ---------- Lobby: velg spill ---------- */
 .lobby { display: grid; grid-template-columns: 1fr minmax(420px, 1fr); gap: 28px; align-items: start; max-width: 1500px; }
 .lobby-left { gap: 18px; }
-.lobby-left .join-big .code { font-size: clamp(3rem, 8vw, 7rem); }
 .lobby-right { max-height: calc(100vh - 150px); gap: 12px; }
 .lobby-right select { width: auto; padding: 8px 10px; }
 .pick-scroll { overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 6px; }
