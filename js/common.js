@@ -167,12 +167,27 @@ const GS = (function() {
         return;
       }
     }
+    // Husk hvor langt rullbare lister var rullet, så de ikke hopper til toppen når de tegnes på nytt.
+    const sameKind = (root, tag, cls) => [...root.getElementsByTagName(tag)].filter(n => n.className === cls);
+    const scrolled = [];
+    el.querySelectorAll("*").forEach(node => {
+      if (node.scrollTop > 0) {
+        const tag = node.tagName, cls = node.className;
+        scrolled.push({ tag, cls, index: sameKind(el, tag, cls).indexOf(node), top: node.scrollTop });
+      }
+    });
     const saved = {};
     el.querySelectorAll("input[id]").forEach(input => {
       saved[input.id] = { value: input.value, focused: document.activeElement === input, dirty: input.dataset.dirty };
     });
+    const elTop = el.scrollTop;
     el.innerHTML = html;
     lastHtml.set(el, html);
+    if (elTop) el.scrollTop = elTop;
+    scrolled.forEach(s => {
+      const match = sameKind(el, s.tag, s.cls)[s.index];
+      if (match) match.scrollTop = s.top;
+    });
     Object.entries(saved).forEach(([id, s]) => {
       const input = el.querySelector(`#${CSS.escape(id)}`);
       if (!input || !s.dirty) return;
