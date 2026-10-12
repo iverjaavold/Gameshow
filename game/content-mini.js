@@ -174,4 +174,71 @@ const IMAGES = [
   { emoji: "🎩", answers: ["flosshatt", "hatt"] }
 ];
 
-module.exports = { LYN_QUESTIONS, TENK_PROMPTS, ESTIMATES, ANIMALS, IMAGES };
+// Tegn ordet: ting som er mulige å tegne på en mobil
+const DRAW_WORDS = [
+  "Hus", "Sol", "Bil", "Katt", "Hund", "Fisk", "Tre", "Blomst", "Båt", "Fly", "Sykkel", "Paraply",
+  "Snømann", "Gitar", "Briller", "Pizza", "Is", "Kake", "Rakett", "Robot", "Hjerte", "Stjerne",
+  "Spøkelse", "Edderkopp", "Slange", "Sjiraff", "Elefant", "Fyrtårn", "Regnbue", "Vulkan",
+  "Telefon", "Klokke", "Lampe", "Stol", "Seng", "Tog", "Brannbil", "Helikopter", "Drage", "Krone",
+  "Sko", "Hatt", "Banan", "Eple", "Gulrot", "Bok", "Saks", "Nøkkel", "Lyspære", "Ballong"
+];
+
+// Nynn sangen: kjente sanger. Første svar er tittelen som vises, resten godtas også.
+const SONGS = [
+  ["Bæ bæ lille lam"], ["Lisa gikk til skolen"], ["Hjulene på bussen"], ["Bjørnen sover"],
+  ["Gubben Noa"], ["Mikkel Rev"], ["Hurra for deg"], ["Ja, vi elsker", "Ja vi elsker dette landet"],
+  ["Musevisa", "Nå er det jul igjen og nå er det jul igjen", "Musevisen"], ["Deilig er jorden"],
+  ["Jingle Bells"], ["Happy Birthday", "Hurra for deg som fyller ditt år"],
+  ["Take On Me"], ["Bohemian Rhapsody"], ["Billie Jean"], ["Dancing Queen"],
+  ["Shape of You"], ["Let It Go", "La den gå"], ["We Will Rock You"], ["Smells Like Teen Spirit"],
+  ["Africa"], ["Hey Jude"], ["Rolling in the Deep"], ["Despacito"], ["Bad Guy"],
+  ["Gangnam Style"], ["Macarena"], ["Fairytale"], ["Seven Nation Army"], ["Mamma Mia"],
+  ["Livet er herlig"], ["Kom igjen Lillemor"], ["Nordnorsk julesalme"], ["Vi skal ikkje sove bort sommarnatta"],
+  ["Pirates of the Caribbean"], ["Star Wars"], ["Harry Potter"], ["Tetris"], ["Super Mario"]
+].map(answers => ({ title: answers[0], answers }));
+
+// Charades: ord og uttrykk som kan fremføres uten lyd
+const CHARADES = [
+  "Tannbørste", "Paraply", "Fallskjermhopp", "Skiløper", "Dirigent", "Gorilla", "Selfie", "Tryllekunstner",
+  "Pizzabaker", "Surfer", "Bowling", "Mumie", "Zombie", "Robot", "Ballettdanser", "Bokser",
+  "Fotograf", "Kenguru", "Pingvin", "Sumobryter", "Smøre matpakke", "Skifte bleie", "Spise spaghetti",
+  "Bake kake", "Klatre i fjell", "Gå på line", "Mate ender", "Vaske bilen", "Synge i dusjen",
+  "Titanic", "Spider-Man", "Harry Potter", "Frost", "Løvenes konge", "Superman", "Sjørøver",
+  "Kokk", "Tannlege", "Frisør", "Brannmann", "Astronaut", "Dykker", "Cowboy", "Ridder"
+];
+
+// Kun gale svar: enkle spørsmål. Fasiten vises for hosten.
+const WRONG_ONLY = [
+  { q: "Hvilken farge har gresset?", a: "Grønn" },
+  { q: "Hvor mange ben har en hund?", a: "4" },
+  { q: "Hva heter Norges hovedstad?", a: "Oslo" },
+  { q: "Hva sier kua?", a: "Mø" },
+  { q: "Hva er 2 + 2?", a: "4" },
+  { q: "Hvilken farge har snø?", a: "Hvit" },
+  { q: "Hvor mange dager er det i en uke?", a: "7" },
+  { q: "Hva drikker babyer?", a: "Melk" },
+  { q: "Hva bruker man for å se?", a: "Øynene" },
+  { q: "Hvilken årstid er kaldest?", a: "Vinter" },
+  { q: "Hva heter planeten vi bor på?", a: "Jorda" },
+  { q: "Hvor mange fingre har man på én hånd?", a: "5" },
+  { q: "Hvilket dyr sier voff?", a: "Hund" },
+  { q: "Hva er motsatt av varm?", a: "Kald" },
+  { q: "Hva legger høna?", a: "Egg" },
+  { q: "Hvilken farge har en banan?", a: "Gul" },
+  { q: "Hva skinner om dagen?", a: "Sola" },
+  { q: "Hva bruker man for å låse opp en dør?", a: "Nøkkel" },
+  { q: "Hva er 10 minus 5?", a: "5" },
+  { q: "Hvilken måned kommer etter januar?", a: "Februar" },
+  { q: "Hva sover man i?", a: "Seng" },
+  { q: "Hvilket tall kommer etter 9?", a: "10" },
+  { q: "Hva heter det kalde hvite som faller om vinteren?", a: "Snø" },
+  { q: "Hvor mange hjul har en sykkel?", a: "2" },
+  { q: "Hvilken farge har himmelen en klar dag?", a: "Blå" },
+  { q: "Hva spiser man suppe med?", a: "Skje" },
+  { q: "Hva heter babyen til en katt?", a: "Kattunge" },
+  { q: "Hvilken dag kommer etter fredag?", a: "Lørdag" },
+  { q: "Hva bruker fisker for å puste?", a: "Gjeller" },
+  { q: "Hva er frossent vann?", a: "Is" }
+];
+
+module.exports = { LYN_QUESTIONS, TENK_PROMPTS, ESTIMATES, ANIMALS, IMAGES, DRAW_WORDS, SONGS, CHARADES, WRONG_ONLY };

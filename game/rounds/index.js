@@ -161,6 +161,115 @@ const GAMES = {
       "By i hemmelighet. Den som byr mest, betaler budet sitt og får pakken."
     ]
   },
+  tegn: {
+    module: () => require("./mini-tegn"), type: "konkurranse", minutes: 6,
+    title: "Tegn ordet", tag: "Minirunde – tegn på mobilen",
+    desc: "Én tegner et ord på mobilen, de andre gjetter. Alle får tegne.",
+    rules: [
+      "Én om gangen får et hemmelig ord på mobilen og tegner det med fingeren.",
+      "Tegningen vises her på skjermen. Alle andre skriver hva de tror det er.",
+      "Først riktig får mest. Tegneren får poeng for hver som gjetter riktig – så tegn tydelig!",
+      "Ingen bokstaver eller tall i tegningen."
+    ]
+  },
+  nynn: {
+    module: () => require("./mini-nynn"), type: "konkurranse", minutes: 5,
+    title: "Nynn sangen", tag: "Minirunde",
+    desc: "Én nynner en sang uten ord, de andre gjetter hvilken.",
+    rules: [
+      "Én om gangen får en sang på mobilen og nynner den – uten ord!",
+      "Alle andre skriver hvilken sang de tror det er.",
+      "Først riktig får mest. Nynneren får poeng for hver som gjetter riktig."
+    ]
+  },
+  sekvens: {
+    module: () => require("./mini-sekvens"), type: "konkurranse", minutes: 3,
+    title: "Husk sekvensen", tag: "Minirunde – alle mot alle",
+    desc: "Gjenta fargesekvensen. Den blir lengre hver runde. Siste igjen vinner.",
+    rules: [
+      "Skjermen viser en rekke med farger. Følg godt med!",
+      "Trykk de samme fargene i samme rekkefølge på mobilen.",
+      "Sekvensen blir én lengre hver runde. Bommer du, er du ute.",
+      "Siste spiller igjen vinner."
+    ]
+  },
+  gale: {
+    module: () => require("./mini-gale"), type: "konkurranse", minutes: 3,
+    title: "Kun gale svar", tag: "Minirunde – sjakklokke",
+    desc: "Svar FEIL på enkle spørsmål, raskt. Sier du det riktige, er du ute.",
+    rules: [
+      "Etter tur får dere et enkelt spørsmål her på skjermen.",
+      "Si et GALT svar høyt, og trykk på knappen på mobilen med en gang.",
+      "Sier du det riktige svaret, eller rekker det ikke på 5 sekunder, er du ute.",
+      "Hosten er dommer. Siste spiller igjen vinner."
+    ]
+  },
+  charades: {
+    module: () => require("./mini-charades"), type: "konkurranse", minutes: 6,
+    title: "Charades", tag: "Minirunde – uten lyd",
+    desc: "Fremfør ord uten lyd – bare med kroppen. Rommet roper ut gjetninger.",
+    rules: [
+      "Én om gangen får ord på mobilen og fremfører dem uten lyd.",
+      "Alle andre roper ut hva de tror det er.",
+      "Fremføreren trykker «Gjettet!» og velger hvem som fikk det til. Begge får poeng.",
+      "Så mange ord du rekker på ett minutt. Du kan passe to ganger."
+    ]
+  },
+  rute: {
+    module: () => require("./mini-bilde").TileRound, type: "konkurranse", minutes: 4,
+    title: "Rute-avsløring", tag: "Minirunde",
+    desc: "Et bilde avsløres én rute om gangen. Gjett hva det er først.",
+    rules: [
+      "Et skjult bilde avsløres én liten rute om gangen.",
+      "Skriv hva du tror det er. Du kan gjette flere ganger.",
+      "Jo tidligere riktig, jo flere poeng. Feil gir 5 sekunders pause."
+    ]
+  },
+  labyrint: {
+    module: () => require("./mini-labyrint"), type: "samarbeid", minutes: 4,
+    title: "Labyrint", tag: "Samarbeid – to og to",
+    desc: "Én ser labyrinten, den andre styrer i blinde. Snakk dere gjennom!",
+    rules: [
+      "Dere er to og to. Navigatøren ser labyrinten på mobilen.",
+      "Styreren ser ingenting, men har piltastene.",
+      "Snakk sammen og kom dere i mål. Alle lag får samme labyrint.",
+      "Skjermen viser hvor langt hvert lag har kommet. Først i mål får mest."
+    ]
+  },
+  balanse: {
+    module: () => require("./mini-balanse"), type: "konkurranse", minutes: 2,
+    title: "Balanser ballen", tag: "Minirunde – vipp mobilen",
+    desc: "Styr en ball med gyroskopet og hold den i senteret. Senteret flytter seg!",
+    rules: [
+      "Hold mobilen flatt og vipp den for å styre ballen.",
+      "Hold ballen så nær senteret som mulig – i ett minutt.",
+      "Senteret flytter seg 3–4 ganger. Jag det!",
+      "På iPhone: trykk «Slå på bevegelse» først."
+    ]
+  },
+  ballabyrint: {
+    module: () => require("./mini-ballabyrint"), type: "samarbeid", minutes: 3,
+    title: "Ball gjennom labyrint", tag: "Samarbeid – vipp mobilen",
+    desc: "To og to: én vipper venstre/høyre, én opp/ned. Få ballen gjennom labyrinten sammen.",
+    rules: [
+      "Dere er to og to med én ball i en labyrint her på skjermen.",
+      "Den ene vipper mobilen til venstre/høyre, den andre forover/bakover.",
+      "Ballen bremser nær veggene – ta det rolig og samarbeid!",
+      "Først i mål får mest. På iPhone: trykk «Slå på bevegelse» først."
+    ]
+  },
+  lyd: {
+    module: () => require("./mini-lyd"), type: "konkurranse", minutes: 3, needs: "lydfiler",
+    available: () => require("./mini-lyd").available(),
+    title: "Gjett dyrelyden", tag: "Minirunde – skru opp lyden",
+    desc: "Hvilket dyr er det? Fem lyder, fra lett til vanskelig.",
+    rules: [
+      "Skjermen spiller av en dyrelyd. Skru opp lyden!",
+      "Skriv hvilket dyr det er på mobilen. Du kan gjette flere ganger.",
+      "Fem lyder – den første er lett, så blir de vanskeligere.",
+      "Først riktig får mest."
+    ]
+  },
   mafia: {
     module: () => require("./mini-mafia"), type: "strategi", minutes: 4, recommended: 5,
     title: "Blunke-mafia", tag: "Minirunde – anbefalt 5+ deltakere",
@@ -240,8 +349,13 @@ function leaderPowerFor(id) {
   }
 }
 
+// Spill som mangler noe for å kunne spilles (f.eks. lydfiler)
+function isAvailable(id) {
+  return !GAMES[id].available || GAMES[id].available();
+}
+
 function roundClass(id) {
   return GAMES[id].module();
 }
 
-module.exports = { GAMES, ALL_IDS, leaderPowerFor, roundClass };
+module.exports = { GAMES, ALL_IDS, leaderPowerFor, roundClass, isAvailable };

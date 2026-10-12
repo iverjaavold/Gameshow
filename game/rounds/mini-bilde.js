@@ -5,6 +5,9 @@
   Feil gjetning gir 5 sekunders pause. Svarene sjekkes automatisk (synonymer og små skrivefeil godtas).
   Bare et hake-ikon vises ved den som har gjettet riktig.
 
+  Variant – Rute-avsløring (TileRound nederst): i stedet for å zoome ut, avsløres én og én
+  liten rute av bildet til noen gjetter hva det er. Samme poeng og samme bildebank.
+
   Egne bilder: legg filene i assets/bilder/ og beskriv dem i assets/bilder/bilder.json (se README).
   Da brukes de i stedet for de innebygde emoji-bildene.
 */
@@ -36,6 +39,10 @@ function loadImages() {
 const BANK = loadImages();
 
 class ZoomRound extends Round {
+  get mode() {
+    return "zoom";
+  }
+
   start() {
     this.index = 0;
     this.nextImage();
@@ -53,6 +60,7 @@ class ZoomRound extends Round {
     this.zoomMs = ms(C.ZOOM_SECONDS);
     // Fokuspunkt: et tilfeldig sted nær midten, så første utsnitt ikke er helt tomt
     this.focus = { x: randInt(35, 65), y: randInt(35, 65) };
+    if (this.mode === "rute") this.tileOrder = shuffle([...Array(C.TILE_GRID * C.TILE_GRID).keys()]);
     this.solved = new Map(); // spiller -> poeng
     this.cooldown = new Map(); // spiller -> tidspunkt
     this.auto(() => this.reveal(), C.ZOOM_SECONDS + C.EXTRA_SECONDS);
@@ -112,11 +120,13 @@ class ZoomRound extends Round {
 
   hostView() {
     return {
-      type: "bilde",
+      type: this.mode === "rute" ? "rute" : "bilde",
       step: this.step,
       index: this.index,
       total: C.IMAGES,
       image: this.imageView(),
+      tileGrid: C.TILE_GRID,
+      tileOrder: this.mode === "rute" ? this.tileOrder : null,
       startedAt: this.startedAt,
       zoomMs: this.zoomMs,
       startZoom: C.START_ZOOM,
@@ -133,6 +143,7 @@ class ZoomRound extends Round {
   playerView(player) {
     return {
       type: "bilde",
+      title: this.mode === "rute" ? "Rute-avsløring" : "Bildezoom",
       step: this.step,
       index: this.index,
       total: C.IMAGES,
@@ -145,4 +156,12 @@ class ZoomRound extends Round {
   }
 }
 
+// Rute-avsløring: samme spill, men bildet avsløres rute for rute.
+class TileRound extends ZoomRound {
+  get mode() {
+    return "rute";
+  }
+}
+
+ZoomRound.TileRound = TileRound;
 module.exports = ZoomRound;
