@@ -167,3 +167,24 @@ body.player {
 
 .mine-phone { text-align: center; font-size: 4rem; font-weight: 900; color: var(--yellow); font-variant-numeric: tabular-nums; }
 select { font: inherit; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: #1b2257; color: var(--text); width: 100%; }
+
+/* ---------- Nye minispill ---------- */
+.secret-word { text-align: center; font-size: 2.4rem; font-weight: 900; color: var(--yellow); background: var(--panel); border-radius: 18px; padding: 18px; margin: 12px 0; }
+.tegn-canvas { display: block; width: 100%; aspect-ratio: 1; border-radius: 16px; background: white; touch-action: none; }
+.tegn-tools { justify-content: center; margin-top: 10px; }
+.tegn-color { width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 3px solid rgba(255,255,255,.4); }
+.tegn-color.selected { outline: 4px solid white; outline-offset: 2px; }
+
+.seq-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+.seq-btn { aspect-ratio: 1.3; border-radius: 20px; }
+.seq-btn:active { filter: brightness(1.4); }
+
+.maze-phone { width: min(92vw, 420px); margin: 10px auto; background: #0b1030; border-radius: 14px; padding: 8px; transition: background .2s; }
+.maze-phone.bump { background: #5a1020; }
+.maze-arrows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(86vw, 330px); margin: 16px auto; }
+.maze-arrow { aspect-ratio: 1; font-size: 2.2rem; padding: 0; }
+.bad-text { color: var(--bad); font-weight: 900; font-size: 1.4em; }
+
+.bal-canvas { display: block; width: min(92vw, 420px); aspect-ratio: 1; margin: 10px auto; border-radius: 50%; touch-action: none; }
+.tilt-pad { position: relative; width: min(80vw, 300px); aspect-ratio: 1; margin: 14px auto; border-radius: 50%; background: rgba(255,255,255,.06); border: 3px solid var(--line); touch-action: none; }
+.tilt-meter { position: absolute; left: 50%; top: 50%; width: 22%; height: 22%; margin: -11% 0 0 -11%; border-radius: 50%; background: var(--yellow); }

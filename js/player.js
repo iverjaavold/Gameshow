@@ -288,6 +288,33 @@
         }
         return;
       }
+      case "tegnColor":
+        tegn.color = Number(data.v);
+        break;
+      case "tegnClear":
+        tegnReset(tegn.key);
+        round("clear");
+        break;
+      case "seqTap": {
+        const g = view.game;
+        if (!g || g.type !== "sekvens") break;
+        seqInput.taps.push(Number(data.v));
+        if (seqInput.taps.length >= g.length) {
+          const seq = seqInput.taps.slice();
+          seqInput.taps = [];
+          round("submit", { seq });
+        }
+        break;
+      }
+      case "seqUndo":
+        seqInput.taps.pop();
+        break;
+      case "charadesPick":
+        ui.charadesPick = ui.charadesPick ? null : (view.game && view.game.word);
+        break;
+      case "motion":
+        await enableMotion();
+        return;
       case "mafiaAccuse":
         ui.mafiaAccuse = !ui.mafiaAccuse;
         break;
@@ -371,6 +398,7 @@
     drawTop();
     drawOverlay();
     render(els.main, drawMain());
+    tegnPaint();
   }
 
   function drawToasts() {
@@ -576,7 +604,16 @@
       estimat: roundEstimat,
       gruva: roundGruva,
       bilde: roundBilde,
-      mafia: roundMafia
+      mafia: roundMafia,
+      tegn: roundGuessTurn,
+      nynn: roundGuessTurn,
+      sekvens: roundSekvens,
+      gale: roundGale,
+      charades: roundCharades,
+      labyrint: roundLabyrint,
+      balanse: roundBalanse,
+      ballabyrint: roundBallabyrint,
+      lyd: roundLyd
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -736,7 +773,7 @@
   }
 
   function roundBilde(g) {
-    const head = `<p class="muted">Bildezoom · ${g.index} av ${g.total} ${g.endsAt ? `· ${countdown(g.endsAt)} s` : ""}</p>`;
+    const head = `<p class="muted">${esc(g.title || "Bildezoom")} · ${g.index} av ${g.total} ${g.endsAt ? `· ${countdown(g.endsAt)} s` : ""}</p>`;
     if (g.step === "reveal") return head + waiting(`Det var: ${esc(g.answer)}`, g.solved ? `Du fikk ${g.points} poeng!` : "Du gjettet ikke riktig.");
     if (g.solved) return head + waiting("✓ Riktig!", `+${g.points} poeng. Ikke si svaret høyt!`);
     const cooling = g.cooldownUntil && g.cooldownUntil > GS.now();
@@ -1002,6 +1039,347 @@
       <div class="col">${outcomes}</div>
       ${amountForm("final-stake", "finalBet", g.maxStake, g.myBet ? g.myBet.stake : null, `Innsats (riktig gir ${g.payout}× gevinst)`)}
       ${g.myBet ? `<p class="center">Du har satset ${g.myBet.stake} på «${esc(g.outcomes.find(o => o.id === g.myBet.outcome).label)}».</p>` : ""}`;
+  }
+
+  // ---------- Nye minispill ----------
+
+  const SEQ_COLORS = ["#ff4d4d", "#3fa2ff", "#4fd17a", "#ffd84d"];
+  const SEQ_NAMES = ["Rød", "Blå", "Grønn", "Gul"];
+
+  // Sender uten å vente og uten feilmelding (hyppige oppdateringer som ballposisjon og tegnestreker)
+  function quiet(action, data) {
+    api("/api/action", { code, token, type: "round", data: { action, ...data } }).catch(() => {});
+  }
+
+  // Tegn ordet og Nynn sangen
+  function roundGuessTurn(g) {
+    const what = g.type === "tegn" ? "Tegn ordet" : "Nynn sangen";
+    if (g.step === "skip") return waiting("For få spillere", "");
+    const head = `<p class="muted">${what} · ${g.turn} av ${g.turns}${g.step !== "reveal" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
+    if (g.step === "reveal") return head + waiting(`Det var: ${esc(g.prompt)}`, g.performer ? "" : g.solved ? `Du fikk ${g.points} poeng!` : "Du gjettet ikke riktig.");
+    if (g.performer) {
+      const task = g.type === "tegn" ? "Tegn" : "Nynn (uten ord!)";
+      if (g.step === "ready") {
+        return `<h1 class="center">${task}:</h1><div class="secret-word">${esc(g.prompt)}</div>
+          <p class="center">Ikke vis skjermen til noen!</p>${roundBtn("Start nå", "start", {}, "huge-btn")}`;
+      }
+      const status = `<p class="center">${g.solvedCount} av ${g.guesserCount} har gjettet riktig</p>`;
+      if (g.type === "nynn") return `<h1 class="center">Nynn:</h1><div class="secret-word">${esc(g.prompt)}</div>${status}`;
+      const colors = g.colors.map((c, i) => `<button class="tegn-color ${tegn.color === i ? "selected" : ""}" data-ui="tegnColor" data-v="${i}" style="background:${c}"></button>`).join("");
+      return `<div class="row" style="justify-content:space-between"><b>Tegn: ${esc(g.prompt)}</b>${status}</div>
+        <canvas id="tegn-canvas" class="tegn-canvas" width="1000" height="1000"></canvas>
+        <div class="row tegn-tools">${colors}${uiBtn("🗑 Visk ut alt", "tegnClear", {}, "secondary")}</div>`;
+    }
+    if (g.step === "ready") return head + waiting(`${esc(g.performerName)} ${g.type === "tegn" ? "tegner" : "nynner"} snart`, "Følg med på hovedskjermen!");
+    if (g.solved) return head + waiting("✓ Riktig!", `+${g.points} poeng. Ikke si svaret høyt!`);
+    const cooling = g.cooldownUntil && g.cooldownUntil > GS.now();
+    if (cooling && ui.cooldownTimerFor !== g.cooldownUntil) {
+      ui.cooldownTimerFor = g.cooldownUntil;
+      setTimeout(draw, g.cooldownUntil - GS.now() + 50);
+    }
+    return head + `<h1>${g.type === "tegn" ? "Hva tegner" : "Hvilken sang nynner"} ${esc(g.performerName)}?</h1>
+      ${cooling ? `<p class="center big">Feil! Vent litt …</p>` : ""}
+      ${textForm("gjett-input", "guess", "text", g.type === "tegn" ? "Hva er det?" : "Sangtittel", "", { button: "Gjett", disabled: cooling })}`;
+  }
+
+  // Tegning med fingeren. Strekene samles lokalt og sendes i små pakker.
+  const tegn = { key: null, strokes: [], current: null, pending: [], color: 0 };
+
+  function tegnReset(key) {
+    Object.assign(tegn, { key, strokes: [], current: null, pending: [] });
+  }
+
+  function tegnPaint() {
+    const canvas = document.getElementById("tegn-canvas");
+    if (!canvas) return;
+    const g = view && view.game;
+    if (!g || !g.colors) return;
+    if (tegn.key !== g.turnKey) tegnReset(g.turnKey);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, 1000, 1000);
+    ctx.lineWidth = 12;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    tegn.strokes.forEach(s => {
+      ctx.strokeStyle = g.colors[s.c];
+      ctx.beginPath();
+      s.p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      if (s.p.length === 1) ctx.lineTo(s.p[0][0] + 0.1, s.p[0][1]);
+      ctx.stroke();
+    });
+  }
+
+  function tegnPoint(e, canvas) {
+    const r = canvas.getBoundingClientRect();
+    return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 1000)];
+  }
+
+  document.addEventListener("pointerdown", e => {
+    const canvas = e.target.closest("#tegn-canvas");
+    if (!canvas) return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    tegn.current = { i: tegn.strokes.length, c: tegn.color, p: [tegnPoint(e, canvas)] };
+    tegn.strokes.push(tegn.current);
+    tegn.pending.push(tegn.current.p[0]);
+    tegnPaint();
+  });
+  document.addEventListener("pointermove", e => {
+    const canvas = e.target.closest("#tegn-canvas");
+    if (!canvas || !tegn.current) return;
+    const p = tegnPoint(e, canvas);
+    const last = tegn.current.p[tegn.current.p.length - 1];
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 6) return;
+    tegn.current.p.push(p);
+    tegn.pending.push(p);
+    tegnPaint();
+  });
+  document.addEventListener("pointerup", () => {
+    tegnFlush();
+    tegn.current = null;
+  });
+  function tegnFlush() {
+    if (!tegn.pending.length) return;
+    const stroke = tegn.current || tegn.strokes[tegn.strokes.length - 1];
+    if (!stroke) return;
+    quiet("stroke", { i: stroke.i, c: stroke.c, p: tegn.pending });
+    tegn.pending = [];
+  }
+  setInterval(tegnFlush, 120);
+
+  // Husk sekvensen
+  const seqInput = { key: null, taps: [] };
+  function roundSekvens(g) {
+    const head = `<p class="muted">Husk sekvensen · runde ${g.level} · ${g.length} farger</p>`;
+    if (g.step === "done") return waiting(g.winner ? "Du vant! 🏆" : `Vinner: ${(g.winners || []).map(esc).join(", ")}`, "");
+    if (!g.alive) return head + waiting("Du er ute", "Følg med på hvem som klarer seg lengst!");
+    if (g.step === "show") return head + waiting("Se på skjermen!", "Husk fargene i riktig rekkefølge.");
+    if (g.step === "result") return head + waiting(g.correct ? "Riktig! ✓" : "Feil …", "");
+    if (g.answered) return head + waiting(g.correct ? "Riktig! ✓" : "Feil …", "Venter på de andre …");
+    const key = `${g.level}`;
+    if (seqInput.key !== key) Object.assign(seqInput, { key, taps: [] });
+    const dots = Array.from({ length: g.length }, (_, i) => `<span class="seq-dot ${i < seqInput.taps.length ? "" : "empty"}" style="${i < seqInput.taps.length ? `background:${SEQ_COLORS[seqInput.taps[i]]}` : ""}"></span>`).join("");
+    const pads = SEQ_COLORS.map((c, i) => `<button class="seq-btn" data-ui="seqTap" data-v="${i}" style="background:${c}" aria-label="${SEQ_NAMES[i]}"></button>`).join("");
+    return head + `<p class="center big">Gjenta sekvensen! ${countdown(g.endsAt)}</p>
+      <div class="seq-row">${dots}</div><div class="seq-btns">${pads}</div>
+      ${seqInput.taps.length ? uiBtn("↩ Angre", "seqUndo", {}, "secondary") : ""}`;
+  }
+
+  function roundGale(g) {
+    if (g.step === "done") return waiting(`Vinner: ${(g.winners || []).map(esc).join(", ")}`, "");
+    if (!g.alive) return waiting("Du er ute", "Hold deg for latter!");
+    if (g.step === "ready") return waiting("Svar FEIL!", `Første spørsmål kommer om ${countdown(g.endsAt)} s`);
+    if (g.myTurn) {
+      return `<p class="center big">${esc(g.question)}</p><h1 class="center">Si et GALT svar – og trykk! ${countdown(g.endsAt)}</h1>
+        ${roundBtn("FERDIG!", "done", {}, "buzzer good")}`;
+    }
+    return waiting(`${esc(g.currentName)} svarer …`, "Følg med på skjermen. Det er snart din tur!");
+  }
+
+  function roundCharades(g) {
+    if (g.step === "skip") return waiting("For få spillere", "");
+    if (!g.performer) {
+      if (g.step === "play") return waiting(`Rop ut hva ${esc(g.performerName)} fremfører!`, "Ingen telefon nå – bare rop!");
+      if (g.step === "ready") return waiting(`${esc(g.performerName)} fremfører snart`, "Gjør deg klar til å rope ut svar!");
+      return waiting("Charades", "Følg med på skjermen.");
+    }
+    if (g.step === "ready") return `<h1 class="center">Din tur!</h1><p class="center big">Fremfør ordene uten lyd – bare med kroppen.</p>
+      ${roundBtn("Start", "start", {}, "huge-btn")}<p class="center muted">Starter av seg selv om ${countdown(g.endsAt)} s</p>`;
+    if (g.step !== "play") return waiting(`${g.words} ord!`, "Bra jobbet!");
+    if (ui.charadesPick && ui.charadesPick !== g.word) ui.charadesPick = null;
+    if (ui.charadesPick) {
+      const list = g.others.map(o => sendBtn(esc(o.name), "round", { action: "guessed", guesser: o.id }, "secondary")).join("");
+      return `<h1>Hvem gjettet «${esc(g.word)}»?</h1><div class="col">${list}</div>${uiBtn("Avbryt", "charadesPick", {}, "secondary")}`;
+    }
+    return `<p class="center">${countdown(g.endsAt)} s · ${g.words} ord</p><div class="secret-word">${esc(g.word)}</div>
+      ${uiBtn("✅ Gjettet!", "charadesPick", {}, "huge-btn good")}
+      ${g.passesLeft > 0 ? roundBtn(`⏭ Pass (${g.passesLeft} igjen)`, "pass", {}, "secondary") : ""}`;
+  }
+
+  function roundLabyrint(g) {
+    if (!g.role) return waiting("Labyrint", "Du er ikke med på et lag denne gangen.");
+    const head = `<p class="muted">Labyrint · med ${esc(g.partner)}${g.step === "play" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
+    if (g.step === "done") return head + waiting(g.place ? `I mål som nr. ${g.place}! 🏁` : `${Math.round(g.progress * 100)} % av veien`, `+${g.points} poeng`);
+    if (g.place) return head + waiting(`I mål som nr. ${g.place}! 🏁`, "Venter på de andre lagene …");
+    const bump = g.bumpAt && GS.now() - g.bumpAt < 800;
+    if (g.role === "navigator") {
+      return head + `<h2 class="center">Du ser labyrinten – led ${esc(g.partner)} til det grønne feltet!</h2>
+        <div class="maze-phone ${bump ? "bump" : ""}">${GS.mazeSvg(g.maze, { pos: g.pos, trail: g.trail })}</div>
+        <p class="center muted">${g.step === "ready" ? "Starter snart …" : `${g.bumps} kræsj i veggen`}</p>`;
+    }
+    const arrow = (dir, label) => roundBtn(label, "move", { dir }, "maze-arrow");
+    return head + `<h2 class="center">Du styrer i blinde – lytt til ${esc(g.partner)}!</h2>
+      ${bump ? `<p class="center bad-text">💥 Vegg!</p>` : `<p class="center muted">${g.step === "ready" ? "Starter snart …" : "Trykk én gang per rute."}</p>`}
+      <div class="maze-arrows"><span></span>${arrow("up", "▲")}<span></span>${arrow("left", "◀")}<span></span>${arrow("right", "▶")}<span></span>${arrow("down", "▼")}<span></span></div>`;
+  }
+
+  // ---------- Bevegelse (gyroskop) ----------
+
+  const motion = { on: false, gamma: 0, beta: 0, beta0: null, touch: null };
+
+  async function enableMotion() {
+    try {
+      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if (res !== "granted") throw new Error("Ikke tillatt");
+      }
+      if (!motion.on) {
+        window.addEventListener("deviceorientation", e => {
+          if (e.gamma === null) return;
+          motion.gamma = e.gamma;
+          motion.beta = e.beta;
+          if (motion.beta0 === null) motion.beta0 = e.beta;
+        });
+      }
+      motion.on = true;
+      motion.beta0 = null; // kalibrer: slik telefonen holdes nå, er «flatt»
+      toast("Bevegelse er på. Hold telefonen slik du vil ha den.");
+    } catch (e) {
+      toast("Fikk ikke bruke bevegelse. Bruk fingeren på feltet i stedet.", true);
+    }
+    draw();
+  }
+
+  // Vipping som -1 til 1. Uten gyroskop: dra fingeren fra midten av feltet.
+  function tilt() {
+    if (motion.touch) return motion.touch;
+    if (!motion.on) return { x: 0, y: 0 };
+    const clamp = v => Math.max(-1, Math.min(1, v));
+    return { x: clamp(motion.gamma / 25), y: clamp((motion.beta - (motion.beta0 ?? motion.beta)) / 25) };
+  }
+
+  function motionButton() {
+    return motion.on
+      ? uiBtn("🎯 Kalibrer (hold flatt og trykk)", "motion", {}, "secondary")
+      : uiBtn("📱 Slå på bevegelse", "motion", {}, "huge-btn");
+  }
+
+  // Fallback: dra fingeren på feltet for å «vippe»
+  document.addEventListener("pointerdown", e => {
+    const pad = e.target.closest("[data-tiltpad]");
+    if (!pad) return;
+    e.preventDefault();
+    pad.setPointerCapture(e.pointerId);
+    touchTilt(e, pad);
+  });
+  document.addEventListener("pointermove", e => {
+    const pad = e.target.closest("[data-tiltpad]");
+    if (pad && motion.touch) touchTilt(e, pad);
+  });
+  document.addEventListener("pointerup", () => { motion.touch = null; });
+  function touchTilt(e, pad) {
+    const r = pad.getBoundingClientRect();
+    const clamp = v => Math.max(-1, Math.min(1, v));
+    motion.touch = { x: clamp(((e.clientX - r.left) / r.width - 0.5) * 2.5), y: clamp(((e.clientY - r.top) / r.height - 0.5) * 2.5) };
+  }
+
+  // Balanser ballen: ballen regnes ut her og tegnes på mobilen
+  const bal = { x: 0, y: 0, vx: 0, vy: 0, last: null, sent: 0 };
+  function roundBalanse(g) {
+    if (g.step === "ready") {
+      Object.assign(bal, { x: 0, y: 0, vx: 0, vy: 0, last: null });
+      return `<h1 class="center">Balanser ballen</h1><p class="center big">Hold mobilen flatt og vipp for å styre ballen. Hold den i ringen!</p>
+        ${motionButton()}<p class="center muted">Starter om ${countdown(g.endsAt)} s. Uten bevegelse: dra fingeren på feltet.</p>`;
+    }
+    if (g.step === "done") {
+      const r = g.result;
+      return waiting(r ? `Nr. ${r.place} – ${Math.round(r.share * 100)} % balanse` : "Ferdig!", r ? `+${r.points} poeng` : "");
+    }
+    return `<p class="center">${countdown(g.endsAt)} s · hold ballen i ringen!</p>
+      <canvas id="bal-canvas" class="bal-canvas" width="600" height="600" data-tiltpad></canvas>
+      ${motion.on ? "" : motionButton()}`;
+  }
+
+  function balTarget(g, t) {
+    let target = g.targets[0];
+    g.targets.forEach(tg => { if (tg.at <= t) target = tg; });
+    return target;
+  }
+
+  GS.onFrame(t => {
+    const g = view && view.phase === "round" && view.game;
+    if (!g || g.type !== "balanse" || g.step !== "play" || !g.targets) return;
+    const now = performance.now();
+    const dt = bal.last === null ? 0 : Math.min(0.05, (now - bal.last) / 1000);
+    bal.last = now;
+    const tl = tilt();
+    bal.vx = (bal.vx + tl.x * 2.2 * dt) * 0.985;
+    bal.vy = (bal.vy + tl.y * 2.2 * dt) * 0.985;
+    bal.x += bal.vx * dt;
+    bal.y += bal.vy * dt;
+    if (Math.abs(bal.x) > 1) { bal.x = Math.sign(bal.x); bal.vx *= -0.4; }
+    if (Math.abs(bal.y) > 1) { bal.y = Math.sign(bal.y); bal.vy *= -0.4; }
+    if (now - bal.sent > 150) {
+      bal.sent = now;
+      quiet("ball", { x: +bal.x.toFixed(3), y: +bal.y.toFixed(3) });
+    }
+    const canvas = document.getElementById("bal-canvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const P = v => 300 + v * 270;
+    const tg = balTarget(g, t);
+    ctx.fillStyle = "#16205a";
+    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillStyle = "rgba(79,209,122,.25)";
+    ctx.beginPath();
+    ctx.arc(P(tg.x), P(tg.y), g.targetRadius * 270, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#4fd17a";
+    ctx.beginPath();
+    ctx.arc(P(tg.x), P(tg.y), 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffd84d";
+    ctx.beginPath();
+    ctx.arc(P(bal.x), P(bal.y), 26, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Ball gjennom labyrint: mobilen sender bare hvor mye den vippes langs sin akse
+  let tiltSent = 0;
+  function roundBallabyrint(g) {
+    if (!g.axes) return waiting("Ball gjennom labyrint", "Du er ikke med på et lag denne gangen.");
+    const axisText = g.axes.length === 2 ? "både sidelengs og forover/bakover" : g.axes[0] === "x" ? "VENSTRE ↔ HØYRE" : "FOROVER ↕ BAKOVER";
+    const head = `<p class="muted">Lag ${g.teamNo}${g.partner ? ` · med ${esc(g.partner)}` : ""}${g.step === "play" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
+    if (g.step === "done") return head + waiting(g.place ? `I mål som nr. ${g.place}! 🏁` : "Tiden er ute", `+${g.points} poeng`);
+    if (g.place) return head + waiting(`I mål som nr. ${g.place}! 🏁`, "Venter på de andre lagene …");
+    return head + `<h1 class="center">Du styrer ${axisText}</h1>
+      <p class="center">Se på ballen på hovedskjermen og vipp mobilen. Snakk sammen!</p>
+      <div class="tilt-pad" data-tiltpad><div class="tilt-meter" id="tilt-meter"></div></div>
+      ${motionButton()}
+      ${g.step === "ready" ? `<p class="center muted">Starter om ${countdown(g.endsAt)} s</p>` : ""}`;
+  }
+
+  GS.onFrame(() => {
+    const g = view && view.phase === "round" && view.game;
+    if (!g || g.type !== "ballabyrint" || !g.axes || !g.axes.length) return;
+    const tl = tilt();
+    const meter = document.getElementById("tilt-meter");
+    if (meter) {
+      const mx = g.axes.includes("x") ? tl.x : 0, my = g.axes.includes("y") ? tl.y : 0;
+      meter.style.left = `${50 + mx * 39}%`;
+      meter.style.top = `${50 + my * 39}%`;
+    }
+    if (g.step !== "play" || g.place) return;
+    const now = performance.now();
+    if (now - tiltSent < 120) return;
+    tiltSent = now;
+    g.axes.forEach(axis => quiet("tilt", { axis, v: +(axis === "x" ? tl.x : tl.y).toFixed(2) }));
+  });
+
+  function roundLyd(g) {
+    if (g.step === "skip") return waiting("Ingen lydfiler", "");
+    const head = `<p class="muted">Gjett dyrelyden · ${g.index} av ${g.total} ${g.endsAt ? `· ${countdown(g.endsAt)} s` : ""}</p>`;
+    if (g.step === "reveal") return head + waiting(`Det var: ${esc(g.answer)}`, g.solved ? `Du fikk ${g.points} poeng!` : "Du gjettet ikke riktig.");
+    if (g.solved) return head + waiting("✓ Riktig!", `+${g.points} poeng. Ikke si svaret høyt!`);
+    const cooling = g.cooldownUntil && g.cooldownUntil > GS.now();
+    if (cooling && ui.cooldownTimerFor !== g.cooldownUntil) {
+      ui.cooldownTimerFor = g.cooldownUntil;
+      setTimeout(draw, g.cooldownUntil - GS.now() + 50);
+    }
+    return head + `<h1>🔊 Hvilket dyr er det?</h1><p>Lytt til hovedskjermen.</p>
+      ${cooling ? `<p class="center big">Feil! Vent litt …</p>` : ""}
+      ${textForm("lyd-input", "guess", "text", "Dyret", "", { button: "Gjett", disabled: cooling })}`;
   }
 
   boot();

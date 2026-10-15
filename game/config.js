@@ -57,7 +57,8 @@ module.exports = {
   // Maks mulige poeng per spill (brukes til betting). Spill som mangler her, kan ikke få betting.
   ROUND_MAX_POINTS: {
     r1: 1000, r2: 2000, r3: 1500, r4: 900, r5: 1500, r6: 500, r7: 1500, r8: 400, r9: 1000,
-    dyr: 600, tenk: 1500, mafia: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
+    dyr: 600, tenk: 1500, mafia: 1500, tegn: 1500, nynn: 1500, sekvens: 1000, gale: 1000, charades: 1500,
+    rute: 2500, labyrint: 600, balanse: 600, ballabyrint: 600, lyd: 1500, reaksjon: 300, estimat: 1500, gruva: 1500, bilde: 2500
   },
 
   // Runde 1 – Hvelvet
@@ -252,7 +253,119 @@ module.exports = {
     MIN_POINTS: 100,
     WRONG_COOLDOWN_SECONDS: 5,
     REVEAL_SECONDS: 4,
-    FOLDER: "assets/bilder" // egne bilder: se README
+    FOLDER: "assets/bilder", // egne bilder: se README
+    TILE_GRID: 6 // Rute-avsløring: 6 × 6 ruter, avsløres jevnt over ZOOM_SECONDS
+  },
+
+  // Minirunde – Tegn ordet
+  TEGN: {
+    TURNS_MAX: 6, // så mange får tegne (alle hvis færre spillere)
+    READY_SECONDS: 6,
+    TURN_SECONDS: 60,
+    REVEAL_SECONDS: 5,
+    WRONG_COOLDOWN_SECONDS: 2,
+    GUESS_POINTS: [300, 200, 150, 100], // første riktige, andre, tredje, resten
+    PERFORMER_POINTS: 100 // til tegneren for hver som gjetter riktig
+  },
+
+  // Minirunde – Nynn sangen
+  NYNN: {
+    TURNS_MAX: 6,
+    READY_SECONDS: 6,
+    TURN_SECONDS: 45,
+    REVEAL_SECONDS: 5,
+    WRONG_COOLDOWN_SECONDS: 2,
+    GUESS_POINTS: [300, 200, 150, 100],
+    PERFORMER_POINTS: 100 // til nynneren for hver som gjetter riktig
+  },
+
+  // Minirunde – Husk sekvensen
+  SEKVENS: {
+    COLORS: 4,
+    START_LENGTH: 3,
+    MAX_LENGTH: 20, // klarer flere så langt, vinner alle som er igjen
+    LEAD_IN_SECONDS: 1.5,
+    STEP_SECONDS: 0.75, // hvor lenge hver farge lyser
+    INPUT_BASE_SECONDS: 5,
+    INPUT_PER_STEP_SECONDS: 1,
+    RESULT_SECONDS: 3,
+    REVEAL_SECONDS: 8,
+    POINTS_PER_LEVEL: 50,
+    WINNER_POINTS: 500
+  },
+
+  // Minirunde – Kun gale svar
+  GALE: {
+    READY_SECONDS: 6,
+    TURN_SECONDS: 5, // så lang tid har man på å svare feil og trykke
+    MAX_TURNS: 40,
+    REVEAL_SECONDS: 8,
+    POINTS_PER_TURN: 50,
+    WINNER_POINTS: 500
+  },
+
+  // Minirunde – Charades
+  CHARADES: {
+    TURNS_MAX: 6,
+    READY_SECONDS: 8,
+    TURN_SECONDS: 60,
+    TURN_OVER_SECONDS: 5,
+    REVEAL_SECONDS: 8,
+    MAX_PASSES: 2,
+    PERFORMER_POINTS: 100,
+    GUESSER_POINTS: 100
+  },
+
+  // Minirunde – Labyrint (samarbeid)
+  LABYRINT: {
+    WIDTH: 7,
+    HEIGHT: 7,
+    READY_SECONDS: 10,
+    PLAY_SECONDS: 150,
+    REVEAL_SECONDS: 10,
+    FINISH_POINTS: [600, 450, 350, 250], // etter plassering i mål
+    PROGRESS_POINTS: 200 // maks for lag som ikke kom i mål (etter hvor langt de kom)
+  },
+
+  // Minirunde – Balanser ballen (gyroskop)
+  BALANSE: {
+    READY_SECONDS: 12, // tid til å slå på bevegelse og holde telefonen flatt
+    PLAY_SECONDS: 60,
+    REVEAL_SECONDS: 10,
+    TARGET_MOVES_MIN: 3,
+    TARGET_MOVES_MAX: 4,
+    TARGET_RANGE: 0.6, // hvor langt fra midten senteret kan flytte seg
+    SCORE_RADIUS: 0.5, // utenfor denne avstanden fra senteret gir det ingen poeng
+    BROADCAST_SECONDS: 0.2,
+    MAX_POINTS: 600 // ved perfekt balanse hele minuttet
+  },
+
+  // Minirunde – Ball gjennom labyrint (samarbeid, gyroskop)
+  BALLABYRINT: {
+    WIDTH: 5,
+    HEIGHT: 4,
+    READY_SECONDS: 12,
+    PLAY_SECONDS: 120,
+    REVEAL_SECONDS: 10,
+    TICK_SECONDS: 0.05,
+    BROADCAST_EVERY: 2, // sender ballene til skjermene hver 2. tikk (10 ganger i sekundet)
+    ACCEL: 14, // fliser per sekund² ved full vipping
+    FRICTION: 0.93,
+    MAX_SPEED: 4,
+    BRAKE_DISTANCE: 0.6, // nærmere en vegg enn dette begynner ballen å bremse
+    MIN_BRAKE: 0.25, // laveste fart (andel) helt inntil veggen
+    FINISH_POINTS: [600, 450, 350, 250],
+    PROGRESS_POINTS: 200
+  },
+
+  // Minirunde – Gjett dyrelyden
+  LYD: {
+    SOUNDS: 5,
+    GUESS_SECONDS: 20,
+    REVEAL_SECONDS: 5,
+    WRONG_COOLDOWN_SECONDS: 3,
+    POINTS: [300, 200, 150, 100],
+    FOLDER: "assets/lyder" // lydfiler og lyder.json: se README
   },
 
   // Fritekst: små skrivefeil godtas for ord på over så mange bokstaver

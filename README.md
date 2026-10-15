@@ -1,6 +1,6 @@
 # Gameshow
 
-Festspill i gameshow-stil med 10 store runder og 9 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
+Festspill i gameshow-stil med 10 store runder og 19 minirunder. Én hovedskjerm (TV/PC) og én mobil per spiller.
 En liten Node-server på Render serverer appen og kjører spillene. Ingen pakker å installere.
 
 ## Slik spiller dere
@@ -36,7 +36,13 @@ så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet
 5 Hvor mange reiser seg? · 6 Lagduellen · 7 Allianse eller svik · 8 Figurkamp · 9 Lynrunden (buzzer) · 10 Del eller stjel (finalen)
 
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
-Reaksjonstest · Estimering · Gruva · Bildezoom · Blunke-mafia (anbefalt 5+ deltakere)
+Reaksjonstest · Estimering · Gruva · Bildezoom · Rute-avsløring · Blunke-mafia (anbefalt 5+ deltakere) ·
+Tegn ordet · Nynn sangen · Husk sekvensen · Kun gale svar · Charades · Labyrint (samarbeid) ·
+Balanser ballen (gyroskop) · Ball gjennom labyrint (samarbeid, gyroskop) · Gjett dyrelyden (på pause, krever lydfiler)
+
+**Gyroskop-spillene** (Balanser ballen, Ball gjennom labyrint) styres ved å vippe mobilen. På iPhone må hver
+spiller trykke «Slå på bevegelse» én gang (krever HTTPS, som Render har). Uten gyroskop kan man dra fingeren
+på feltet i stedet.
 
 Regler som før var knyttet til rundenumre, skaleres etter antall valgte spill (se `game/config.js`):
 innloggingen stenger halvveis, shopen stenger når 70 % er spilt, og betting og «Kjøp en medspiller»
@@ -53,13 +59,15 @@ gameshow/
 ├── game/
 │   ├── config.js       ALLE justerbare tall ([STANDARD] i spesifikasjonen)
 │   ├── content.js      Quizspørsmål og ord til forklar-mime
-│   ├── content-mini.js Lynrunden, Tenk likt, Estimering, dyreliste og bildebank
+│   ├── content-mini.js Lynrunden, Tenk likt, Estimering, dyreliste, bildebank, tegneord, sanger, charades og «kun gale svar»
+│   ├── maze.js         Labyrint-generator (Labyrint og Ball gjennom labyrint)
 │   ├── game.js         Spillmotoren: plan, poeng, shop, kort, tyveri, betting, lederfordeler, catch-up, bots
 │   ├── plan.js         Setter opp rekkefølgen på de valgte spillene
 │   ├── text.js         Sammenligning av fritekst (små skrivefeil godtas)
 │   ├── randomizer.js   Par og lag, unngår at de samme havner sammen
 │   └── rounds/         Én fil per spill (r1-hvelvet.js … r10-finale.js, mini-*.js)
-├── assets/bilder/      Egne bilder til Bildezoom (valgfritt)
+├── assets/bilder/      Egne bilder til Bildezoom og Rute-avsløring (valgfritt)
+├── assets/lyder/       Dyrelyder til Gjett dyrelyden (må legges inn selv)
 ├── css/                base.css, game.css (felles), host.css, player.css
 └── js/
     ├── common.js       Felles: API, sanntid, nedtelling, animasjoner, figurtegning
@@ -86,6 +94,27 @@ Legg bildefilene i `assets/bilder/` og lag filen `assets/bilder/bilder.json` med
 
 Finnes `bilder.json`, brukes bare disse bildene. Ellers brukes de innebygde emoji-bildene.
 Se `assets/bilder/bilder.eksempel.json`. Start serveren på nytt etter at du har lagt til bilder.
+
+## Lyder til Gjett dyrelyden
+
+**Spillet er på pause** og vises ikke i spillvalget. Slå det på ved å fjerne `paused: true` under `lyd` i
+`game/rounds/index.js`, etter at lydfilene er lagt inn.
+
+Spillet har ingen innebygde lyder. Til det trengs ekte lydfiler. Uten dem er spillet grået ut i spillvalget.
+Legg lydfilene (mp3, ogg, wav eller m4a) i `assets/lyder/` og lag filen `assets/lyder/lyder.json`:
+
+```json
+[
+  { "fil": "ku.mp3", "svar": ["ku", "kua"], "nivå": 1 },
+  { "fil": "ugle.mp3", "svar": ["ugle"], "nivå": 3 },
+  { "fil": "hval.mp3", "svar": ["hval", "knølhval"], "nivå": 5 }
+]
+```
+
+`nivå` er vanskelighetsgraden fra 1 (lett) til 5 (vanskelig). Hver runde tar fem lyder og spiller dem fra lettest
+til vanskeligst. Bruk lyder du har lov til å bruke, for eksempel fra Wikimedia Commons eller freesound.org (CC0).
+Se `assets/lyder/lyder.eksempel.json`. Start serveren på nytt etter at du har lagt til lyder.
+Lyden spilles av på hovedskjermen. Stopper nettleseren den, trykker hosten «🔊 Spill av igjen».
 
 ## Valg tatt der spesifikasjonen var [ÅPENT]
 

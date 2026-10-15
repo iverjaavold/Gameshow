@@ -223,3 +223,9 @@ h1, h2, h3 { margin: 0 0 .4em; }
 .mafia-events { display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 1.3em; }
 .mafia-icon { font-size: 4rem; line-height: 1; }
 .mafia-role h1 { color: var(--pink); }
+
+/* ---------- Nye minispill (felles) ---------- */
+.seq-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
+.seq-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); }
+.seq-dot.empty { background: transparent; border-style: dashed; }
+.maze-svg { display: block; width: 100%; height: auto; }

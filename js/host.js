@@ -286,11 +286,11 @@
     const selected = new Set(selectedIds);
     const locked = new Set(lockedIds);
     const list = big => view.games.filter(g => g.big === big).map(g => {
-      const isLocked = locked.has(g.id);
+      const isLocked = locked.has(g.id) || !!g.missing;
       const on = selected.has(g.id);
       return `<label class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
         <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
-        <span class="grow"><b>${esc(g.title)}</b>${g.recommended ? ` <span class="tag ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+ deltakere</span>` : ""}<small>${isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
+        <span class="grow"><b>${esc(g.title)}</b>${g.recommended ? ` <span class="tag ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+ deltakere</span>` : ""}<small>${g.missing ? `Mangler ${esc(g.missing)} – se README` : isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
         <span class="minutes">${g.minutes} min</span>
       </label>`;
     }).join("");
@@ -442,7 +442,17 @@
       estimat: roundEstimat,
       gruva: roundGruva,
       bilde: roundBilde,
-      mafia: roundMafia
+      mafia: roundMafia,
+      tegn: roundGuessTurn,
+      nynn: roundGuessTurn,
+      sekvens: roundSekvens,
+      gale: roundGale,
+      charades: roundCharades,
+      rute: roundRute,
+      labyrint: roundLabyrint,
+      balanse: roundBalanse,
+      ballabyrint: roundBallabyrint,
+      lyd: roundLyd
     }[g.type];
     return fn ? fn(g) : "";
   }
@@ -877,6 +887,192 @@
       ${g.step === "reveal" ? `<div class="event" style="font-size:2em">Det var: ${esc(g.answer)}!</div>` : `<p class="center">Gjett på mobilen – jo tidligere, jo flere poeng!</p>`}
       <div class="row" style="justify-content:center;gap:14px">${figs}</div>`;
   }
+
+  // ---------- Nye minispill ----------
+
+  const SEQ_COLORS = ["#ff4d4d", "#3fa2ff", "#4fd17a", "#ffd84d"];
+
+  function guessFigs(players) {
+    return `<div class="row" style="justify-content:center;gap:14px">${players.map(p => `<div class="col zoom-player" style="align-items:center;gap:2px">
+        ${figureSvg(p.figure, p.upgrades, { size: 46 })}<small>${esc(p.name)}</small>${p.solved ? `<span class="check">✓</span>` : ""}
+      </div>`).join("")}</div>`;
+  }
+
+  function outFigs(players, mark) {
+    return `<div class="row" style="justify-content:center;gap:14px">${players.map(p => `<div class="col zoom-player ${p.out ? "seq-out" : ""}" style="align-items:center;gap:2px">
+        ${figureSvg(p.figure, p.upgrades, { size: 46 })}<small>${esc(p.name)}</small>${mark(p)}
+      </div>`).join("")}</div>`;
+  }
+
+  // Tegn ordet og Nynn sangen
+  function roundGuessTurn(g) {
+    const what = g.type === "tegn" ? "Tegn ordet" : "Nynn sangen";
+    const verb = g.type === "tegn" ? "tegner" : "nynner";
+    if (g.step === "skip") return title("For få spillere", what);
+    const head = `<div class="round-no center">${what} · ${g.turn} av ${g.turns}${g.step !== "reveal" ? ` · ${countdown(g.endsAt)} s` : ""}</div>`;
+    if (g.step === "ready") {
+      return head + `<div class="hero"><div class="row" style="justify-content:center;gap:20px">${figureSvg(g.performer.figure, g.performer.upgrades, { size: 110 })}
+        <h1 class="mid-title">${esc(g.performer.name)} ${verb}!</h1></div><p style="font-size:1.4em">Se på mobilen – du har fått ${g.type === "tegn" ? "et ord" : "en sang"}.</p></div>`;
+    }
+    let middle;
+    if (g.type === "tegn") {
+      const lines = (g.strokes || []).map(s => `<polyline points="${s.p.map(p => p.join(",")).join(" ")}" stroke="${esc(s.c)}" />`).join("");
+      middle = `<svg class="tegn-board" viewBox="0 0 1000 1000">${lines}</svg>`;
+    } else {
+      middle = `<div class="hero"><div class="row" style="justify-content:center;gap:20px">${figureSvg(g.performer.figure, g.performer.upgrades, { size: 130 })}
+        <div class="nynn-note">🎵</div></div><h1 class="mid-title">${esc(g.performer.name)} nynner …</h1></div>`;
+    }
+    const foot = g.step === "reveal"
+      ? `<div class="event" style="font-size:2em">${g.type === "tegn" ? "Ordet" : "Sangen"} var: ${esc(g.answer)}!</div>`
+      : `<p class="center">Skriv svaret på mobilen – først riktig får mest!</p>`;
+    return head + middle + foot + guessFigs(g.players);
+  }
+
+  function roundSekvens(g) {
+    const head = `<div class="round-no center">Husk sekvensen · runde ${g.level}</div>`;
+    const figs = outFigs(g.players, p => p.winner ? `<span class="check">🏆</span>` : p.done ? `<span class="check">✓</span>` : p.out ? "❌" : "");
+    const pads = SEQ_COLORS.map((c, i) => `<div class="seq-pad" data-seq-pad="${i}" style="--c:${c}"></div>`).join("");
+    if (g.step === "show") {
+      return head + `<h1 class="center mid-title">Følg med!</h1>
+        <div class="seq-pads" data-seq="${attr(g.seq)}" data-seq-start="${g.showAt}" data-seq-step="${g.stepMs}">${pads}</div>${figs}`;
+    }
+    if (g.step === "input") {
+      return head + `<h1 class="center mid-title">Gjenta på mobilen! ${countdown(g.endsAt)}</h1>
+        <div class="seq-pads">${pads}</div>${figs}`;
+    }
+    const seq = `<div class="seq-row">${(g.seq || []).map(i => `<span class="seq-dot" style="background:${SEQ_COLORS[i]}"></span>`).join("")}</div>`;
+    if (g.step === "result") {
+      return head + `<div class="event">${g.failed.length ? `Ute: ${g.failed.map(esc).join(", ")}` : "Alle klarte det!"}</div>${seq}${figs}`;
+    }
+    return title(`Vinner: ${(g.winners || []).map(esc).join(", ")}!`, `Husk sekvensen · ${(g.seq || []).length} farger`) + seq + figs;
+  }
+
+  function roundGale(g) {
+    const figs = outFigs(g.players, p => p.out ? "❌" : "");
+    if (g.step === "ready") return title("Svar FEIL!", "Kun gale svar") + `<p class="center" style="font-size:1.4em">Første spørsmål kommer om ${countdown(g.endsAt)} s</p>${figs}`;
+    if (g.step === "done") return title(`Vinner: ${(g.winners || []).map(esc).join(", ")}!`, "Kun gale svar") + figs;
+    return `<div class="round-no center">Kun gale svar</div>
+      <div class="row" style="justify-content:center;gap:24px">
+        ${figureSvg(g.current.figure, g.current.upgrades, { size: 110 })}
+        <div><div class="event" style="font-size:2.2em">${esc(g.current.name)}</div><div class="big-number">${countdown(g.endsAt)}</div></div>
+      </div>
+      <div class="quiz-q">${esc(g.question)}</div>
+      <p class="center muted">Riktig svar (ikke lov å si): ${esc(g.answer)}</p>
+      ${g.lastOut ? `<p class="center">${esc(g.lastOut)}</p>` : ""}${figs}`;
+  }
+
+  function roundCharades(g) {
+    if (g.step === "skip") return title("For få spillere", "Charades");
+    const head = `<div class="round-no center">Charades · ${g.turn} av ${g.turns}</div>`;
+    const fig = g.performer ? figureSvg(g.performer.figure, g.performer.upgrades, { size: 120 }) : "";
+    if (g.step === "ready") {
+      return head + `<div class="hero"><div class="row" style="justify-content:center;gap:20px">${fig}<h1 class="mid-title">${esc(g.performer.name)} fremfører!</h1></div>
+        <p style="font-size:1.4em">Ingen lyd – bare kroppen! Starter om ${countdown(g.endsAt)} s</p></div>`;
+    }
+    if (g.step === "play") {
+      return head + `<div class="hero"><div class="row" style="justify-content:center;gap:24px">${fig}
+          <div class="big-number" style="font-size:8rem">${countdown(g.endsAt)}</div></div>
+        <h1 class="mid-title">Rop ut hva ${esc(g.performer.name)} fremfører!</h1>
+        <p style="font-size:1.6em">Ord gjettet: <b>${g.words}</b></p>
+        ${g.lastGuess ? `<p class="event">${esc(g.lastGuess)}</p>` : ""}</div>`;
+    }
+    const rows = g.results.map(r => [`<b>${esc(r.name)}</b>`, `${r.words} ord`]);
+    return head + title(g.step === "done" ? "Ferdig!" : `Tiden er ute! ${g.words} ord`, "Charades") + resultTable(["Fremfører", "Ord"], rows);
+  }
+
+  // Rute-avsløring: bildet med ruter som tas bort én og én (se onFrame nederst)
+  function roundRute(g) {
+    const img = g.image.src ? `<img src="${esc(g.image.src)}" alt="">` : `<span class="zoom-emoji">${g.image.emoji}</span>`;
+    const n = g.tileGrid;
+    const rank = new Array(n * n);
+    g.tileOrder.forEach((tile, i) => { rank[tile] = i; });
+    const covers = rank.map(r => `<div class="rute-cover" data-rank="${r}"></div>`).join("");
+    const done = g.step === "reveal" ? `data-done="1"` : "";
+    return `<div class="round-no center">Rute-avsløring · ${g.index} av ${g.total} ${g.step === "zoom" ? `· ${countdown(g.endsAt)} s` : ""}</div>
+      <div class="zoom-frame rute-frame">
+        <div class="zoom-inner">${img}</div>
+        <div class="rute-grid" style="--n:${n}" data-rute data-start="${g.startedAt}" data-dur="${g.zoomMs}" data-count="${n * n}" ${done}>${covers}</div>
+      </div>
+      ${g.step === "reveal" ? `<div class="event" style="font-size:2em">Det var: ${esc(g.answer)}!</div>` : `<p class="center">Gjett på mobilen – jo tidligere, jo flere poeng!</p>`}
+      ${guessFigs(g.players)}`;
+  }
+
+  function roundLabyrint(g) {
+    const bars = g.teams.map(t => `<div class="maze-team">
+        <div class="maze-team-head"><span>${t.figures.map(p => figureSvg(p.figure, p.upgrades, { size: 34 })).join("")}</span>
+          <b>${t.names.map(esc).join(" + ")}</b>
+          <span class="muted">${t.place ? `🏁 nr. ${t.place}` : `${t.bumps} kræsj`}${t.points !== null ? ` · +${t.points}` : ""}</span></div>
+        <div class="maze-bar"><div style="width:${Math.round(t.progress * 100)}%"></div></div>
+      </div>`).join("");
+    const head = g.step === "ready"
+      ? title("Snakk dere gjennom!", "Labyrint") + `<p class="center" style="font-size:1.3em">Navigatøren ser labyrinten, styreren ser ingenting. Starter om ${countdown(g.endsAt)} s</p>`
+      : `<div class="round-no center">Labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
+    return head + `<div class="maze-teams">${bars}</div>${g.maze ? `<div class="maze-reveal">${GS.mazeSvg(g.maze)}</div>` : ""}`;
+  }
+
+  function roundBalanse(g) {
+    if (g.step === "ready") {
+      return title("Hold mobilen flatt!", "Balanser ballen") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`;
+    }
+    if (g.step === "done" && g.results) {
+      const rows = g.results.map((r, i) => [`${i + 1}. <b>${esc(r.name)}</b>`, `${Math.round(r.share * 100)} %`, `+${r.points}`]);
+      return title("Hvem holdt balansen?", "Balanser ballen") + resultTable(["Spiller", "Balanse", "Poeng"], rows);
+    }
+    const pos = v => 50 + v * 45;
+    const balls = g.balls.map(b => `<div class="bal-ball" style="left:${pos(b.x)}%;top:${pos(b.y)}%">${figureSvg(b.figure, b.upgrades, { size: 40 })}<small>${esc(b.name)}</small></div>`).join("");
+    const size = g.targetRadius * 90;
+    return `<div class="round-no center">Balanser ballen · ${countdown(g.endsAt)} s</div>
+      <div class="bal-arena"><div class="bal-target" style="left:${pos(g.target.x)}%;top:${pos(g.target.y)}%;width:${size}%;height:${size}%"></div>${balls}</div>`;
+  }
+
+  function roundBallabyrint(g) {
+    const { W, H, tiles } = g.grid;
+    let walls = "";
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y * W + x]) walls += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`;
+    const boards = g.teams.map((t, i) => `<div class="ballmaze-team">
+        <div class="maze-team-head"><b>Lag ${i + 1}: ${t.names.map(esc).join(" + ")}</b>
+          <span class="muted">${t.place ? `🏁 nr. ${t.place}` : `${Math.round(t.progress * 100)} %`}${t.points !== null ? ` · +${t.points}` : ""}</span></div>
+        <svg class="ballmaze-svg" viewBox="0 0 ${W} ${H}"><g fill="#5a6bd8">${walls}</g>
+          <circle cx="${g.goal.x}" cy="${g.goal.y}" r="0.4" fill="#4fd17a"/>
+          <circle cx="${t.x.toFixed(2)}" cy="${t.y.toFixed(2)}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/></svg>
+      </div>`).join("");
+    const head = g.step === "ready"
+      ? title("Én vipper sidelengs, én forover!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`
+      : `<div class="round-no center">Ball gjennom labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
+    return head + `<div class="ballmaze-teams">${boards}</div>`;
+  }
+
+  let lastPlayId = null;
+  function roundLyd(g) {
+    if (g.step === "skip") return title("Ingen lydfiler", "Gjett dyrelyden");
+    // Spill av lyden når en ny lyd starter (eller hosten trykker «Spill av igjen»)
+    if (g.step === "listen" && g.src && g.playId !== lastPlayId) {
+      lastPlayId = g.playId;
+      new Audio(g.src).play().catch(() => flashInfo("Nettleseren stoppet lyden. Trykk «Spill av igjen»."));
+    }
+    return `<div class="round-no center">Gjett dyrelyden · ${g.index} av ${g.total} · ${"★".repeat(g.level || 1)} ${g.step === "listen" ? `· ${countdown(g.endsAt)} s` : ""}</div>
+      <div class="hero"><div class="lyd-icon">${g.step === "listen" ? "🔊" : "🐾"}</div></div>
+      ${g.step === "reveal" ? `<div class="event" style="font-size:2em">Det var: ${esc(g.answer)}!</div>` : `<p class="center" style="font-size:1.4em">Hvilket dyr er det? Skriv svaret på mobilen!</p>`}
+      ${guessFigs(g.players)}`;
+  }
+
+  // Animasjoner som følger spillklokka: sekvensen som lyser og rutene som avsløres
+  GS.onFrame(t => {
+    document.querySelectorAll("[data-seq]").forEach(el => {
+      const seq = JSON.parse(el.dataset.seq);
+      const step = Number(el.dataset.seqStep);
+      const since = t - Number(el.dataset.seqStart);
+      const k = Math.floor(since / step);
+      const active = since >= 0 && k < seq.length && (since % step) / step < 0.75 ? seq[k] : -1;
+      el.querySelectorAll("[data-seq-pad]").forEach(pad => pad.classList.toggle("lit", Number(pad.dataset.seqPad) === active));
+    });
+    document.querySelectorAll("[data-rute]").forEach(el => {
+      const count = Number(el.dataset.count);
+      const p = el.dataset.done ? 1 : Math.min(1, Math.max(0, (t - Number(el.dataset.start)) / Number(el.dataset.dur)));
+      const shown = Math.floor(p * count);
+      el.querySelectorAll("[data-rank]").forEach(c => c.classList.toggle("open", Number(c.dataset.rank) < shown));
+    });
+  });
 
   window.addEventListener("resize", () => view && drawBoard());
 })();

@@ -10,7 +10,7 @@
 const config = require("./config");
 const Randomizer = require("./randomizer");
 const { pick, shuffle, token, ms, randInt, GameError } = require("./util");
-const { GAMES, ALL_IDS, leaderPowerFor, roundClass } = require("./rounds");
+const { GAMES, ALL_IDS, leaderPowerFor, roundClass, isAvailable } = require("./rounds");
 const plan = require("./plan");
 
 let nextId = 1;
@@ -917,9 +917,10 @@ class Game {
     };
 
     if (this.phase !== "results") {
-      view.games = ALL_IDS.map(id => {
+      view.games = ALL_IDS.filter(id => !GAMES[id].paused).map(id => {
         const g = GAMES[id];
-        return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type, recommended: g.recommended || null };
+        return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type, recommended: g.recommended || null,
+          missing: isAvailable(id) ? null : g.needs || "noe" };
       });
     }
     if (this.phase === "lobby") {

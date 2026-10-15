@@ -1,0 +1,8 @@
+[
+  { "fil": "ku.mp3", "svar": ["ku", "kua", "kyr"], "nivå": 1 },
+  { "fil": "hund.mp3", "svar": ["hund", "bikkje"], "nivå": 1 },
+  { "fil": "sau.mp3", "svar": ["sau", "lam"], "nivå": 2 },
+  { "fil": "ugle.mp3", "svar": ["ugle"], "nivå": 3 },
+  { "fil": "elg.mp3", "svar": ["elg"], "nivå": 4 },
+  { "fil": "hval.mp3", "svar": ["hval", "knølhval"], "nivå": 5 }
+]

@@ -8,11 +8,11 @@
 */
 
 const config = require("./config");
-const { GAMES, ALL_IDS } = require("./rounds");
+const { GAMES, ALL_IDS, isAvailable } = require("./rounds");
 const { shuffle, pick } = require("./util");
 
 function buildPlan(selected) {
-  const ids = ALL_IDS.filter(id => selected.includes(id));
+  const ids = ALL_IDS.filter(id => selected.includes(id) && isAvailable(id));
   const big = ids.filter(id => GAMES[id].big && id !== "r10");
   let minis = shuffle(ids.filter(id => !GAMES[id].big && id !== "auksjon"));
 
