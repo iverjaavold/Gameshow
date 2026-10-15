@@ -917,7 +917,7 @@ class Game {
     };
 
     if (this.phase !== "results") {
-      view.games = ALL_IDS.map(id => {
+      view.games = ALL_IDS.filter(id => !GAMES[id].paused).map(id => {
         const g = GAMES[id];
         return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type, recommended: g.recommended || null,
           missing: isAvailable(id) ? null : g.needs || "noe" };

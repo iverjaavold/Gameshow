@@ -259,6 +259,8 @@ const GAMES = {
     ]
   },
   lyd: {
+    // På pause: skjult i spillvalget til det er lagt inn lydfiler. Fjern «paused» for å slå det på igjen.
+    paused: true,
     module: () => require("./mini-lyd"), type: "konkurranse", minutes: 3, needs: "lydfiler",
     available: () => require("./mini-lyd").available(),
     title: "Gjett dyrelyden", tag: "Minirunde – skru opp lyden",
@@ -351,6 +353,7 @@ function leaderPowerFor(id) {
 
 // Spill som mangler noe for å kunne spilles (f.eks. lydfiler)
 function isAvailable(id) {
+  if (GAMES[id].paused) return false;
   return !GAMES[id].available || GAMES[id].available();
 }
 

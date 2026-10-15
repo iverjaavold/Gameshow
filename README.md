@@ -38,7 +38,7 @@ så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
 Reaksjonstest · Estimering · Gruva · Bildezoom · Rute-avsløring · Blunke-mafia (anbefalt 5+ deltakere) ·
 Tegn ordet · Nynn sangen · Husk sekvensen · Kun gale svar · Charades · Labyrint (samarbeid) ·
-Balanser ballen (gyroskop) · Ball gjennom labyrint (samarbeid, gyroskop) · Gjett dyrelyden (krever lydfiler)
+Balanser ballen (gyroskop) · Ball gjennom labyrint (samarbeid, gyroskop) · Gjett dyrelyden (på pause, krever lydfiler)
 
 **Gyroskop-spillene** (Balanser ballen, Ball gjennom labyrint) styres ved å vippe mobilen. På iPhone må hver
 spiller trykke «Slå på bevegelse» én gang (krever HTTPS, som Render har). Uten gyroskop kan man dra fingeren
@@ -96,6 +96,9 @@ Finnes `bilder.json`, brukes bare disse bildene. Ellers brukes de innebygde emoj
 Se `assets/bilder/bilder.eksempel.json`. Start serveren på nytt etter at du har lagt til bilder.
 
 ## Lyder til Gjett dyrelyden
+
+**Spillet er på pause** og vises ikke i spillvalget. Slå det på ved å fjerne `paused: true` under `lyd` i
+`game/rounds/index.js`, etter at lydfilene er lagt inn.
 
 Spillet har ingen innebygde lyder. Til det trengs ekte lydfiler. Uten dem er spillet grået ut i spillvalget.
 Legg lydfilene (mp3, ogg, wav eller m4a) i `assets/lyder/` og lag filen `assets/lyder/lyder.json`:
