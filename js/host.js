@@ -1012,17 +1012,21 @@
 
   function roundBalanse(g) {
     if (g.step === "ready") {
-      return title("Hold mobilen flatt!", "Balanser ballen") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`;
+      return title("Kalibrer mobilen!", "Balanser ballen") + `<p class="center" style="font-size:1.3em">Slå på bevegelse, hold mobilen slik du vil og trykk «Kalibrer». Starter om ${countdown(g.endsAt)} s</p>`;
     }
     if (g.step === "done" && g.results) {
       const rows = g.results.map((r, i) => [`${i + 1}. <b>${esc(r.name)}</b>`, `${Math.round(r.share * 100)} %`, `+${r.points}`]);
       return title("Hvem holdt balansen?", "Balanser ballen") + resultTable(["Spiller", "Balanse", "Poeng"], rows);
     }
     const pos = v => 50 + v * 45;
-    const balls = g.balls.map(b => `<div class="bal-ball" style="left:${pos(b.x)}%;top:${pos(b.y)}%">${figureSvg(b.figure, b.upgrades, { size: 40 })}<small>${esc(b.name)}</small></div>`).join("");
-    const size = g.targetRadius * 90;
+    const balls = g.balls.map(b => `<div class="bal-ball" style="left:${pos(b.x)}%;top:${pos(b.y)}%">${figureSvg(b.figure, b.upgrades, { size: 40 })}<small>${esc(b.name)} · ${b.points}</small></div>`).join("");
+    const scores = g.balls.slice().sort((a, b) => b.points - a.points)
+      .map(b => `<div class="bal-score"><span>${esc(b.name)}</span><b>${b.points}</b></div>`).join("");
     return `<div class="round-no center">Balanser ballen · ${countdown(g.endsAt)} s</div>
-      <div class="bal-arena"><div class="bal-target" style="left:${pos(g.target.x)}%;top:${pos(g.target.y)}%;width:${size}%;height:${size}%"></div>${balls}</div>`;
+      <div class="bal-layout">
+        <div class="bal-arena"><div class="bal-dot" style="left:${pos(g.target.x)}%;top:${pos(g.target.y)}%"></div>${balls}</div>
+        <div class="bal-scores"><h3>Poeng</h3>${scores}</div>
+      </div>`;
   }
 
   function roundBallabyrint(g) {
@@ -1037,7 +1041,7 @@
           <circle cx="${t.x.toFixed(2)}" cy="${t.y.toFixed(2)}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/></svg>
       </div>`).join("");
     const head = g.step === "ready"
-      ? title("Én vipper sidelengs, én forover!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`
+      ? title("Kalibrer mobilen!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Én vipper sidelengs, én forover. Slå på bevegelse, hold mobilen slik du vil og trykk «Kalibrer». Starter om ${countdown(g.endsAt)} s</p>`
       : `<div class="round-no center">Ball gjennom labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
     return head + `<div class="ballmaze-teams">${boards}</div>`;
   }

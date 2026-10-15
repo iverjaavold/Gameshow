@@ -70,15 +70,16 @@ const GS = (function() {
   }
 
   // Oppdaterer alle [data-ends]-elementer med gjenstående sekunder.
+  function fillCountdowns(root = document) {
+    root.querySelectorAll("[data-ends]").forEach(el => {
+      const left = String(Math.max(0, Math.ceil((Number(el.dataset.ends) - now()) / 1000)));
+      if (el.textContent !== left) el.textContent = left;
+      el.classList.toggle("low", Number(left) <= 3);
+    });
+  }
+
   function startCountdowns() {
-    setInterval(() => {
-      document.querySelectorAll("[data-ends]").forEach(el => {
-        const ends = Number(el.dataset.ends);
-        const left = Math.max(0, Math.ceil((ends - now()) / 1000));
-        el.textContent = left;
-        el.classList.toggle("low", left <= 3);
-      });
-    }, 200);
+    setInterval(() => fillCountdowns(), 200);
   }
 
   /*
@@ -125,10 +126,11 @@ const GS = (function() {
   }
   requestAnimationFrame(animate);
 
+  // Tallet fylles inn etterpå (fillCountdowns), så HTML-en er lik hele nedtellingen
+  // og skjermen ikke tegnes på nytt bare fordi et sekund har gått.
   function countdown(endsAt, extraClass = "") {
     if (!endsAt) return "";
-    const left = Math.max(0, Math.ceil((endsAt - now()) / 1000));
-    return `<span class="countdown ${extraClass}" data-ends="${endsAt}">${left}</span>`;
+    return `<span class="countdown ${extraClass}" data-ends="${endsAt}"></span>`;
   }
 
   /*
@@ -160,16 +162,16 @@ const GS = (function() {
 
   function render(el, html) {
     if (lastHtml.get(el) === html) return;
-    // Skriver noen i et felt her, oppdateres siden på plass så feltet (og tastaturet på mobilen) beholdes.
+    // Bruker noen et felt eller en nedtrekksliste her, oppdateres siden på plass,
+    // så feltet (og tastaturet / valglista på mobilen) beholdes.
     const active = document.activeElement;
-    if (active && active.matches("input[id], textarea[id]") && el.contains(active)) {
+    if (active && active.matches("input, textarea, select") && el.contains(active)) {
       const next = document.createElement(el.tagName);
       next.innerHTML = html;
-      if (next.querySelector(`#${CSS.escape(active.id)}`)) {
-        morph(el, next);
-        lastHtml.set(el, html);
-        return;
-      }
+      morph(el, next);
+      lastHtml.set(el, html);
+      fillCountdowns(el);
+      return;
     }
     // Husk hvor langt rullbare lister var rullet, så de ikke hopper til toppen når de tegnes på nytt.
     const sameKind = (root, tag, cls) => [...root.getElementsByTagName(tag)].filter(n => n.className === cls);
@@ -187,6 +189,7 @@ const GS = (function() {
     const elTop = el.scrollTop;
     el.innerHTML = html;
     lastHtml.set(el, html);
+    fillCountdowns(el);
     if (elTop) el.scrollTop = elTop;
     scrolled.forEach(s => {
       const match = sameKind(el, s.tag, s.cls)[s.index];

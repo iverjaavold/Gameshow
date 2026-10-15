@@ -315,6 +315,9 @@
       case "motion":
         await enableMotion();
         return;
+      case "calibrate":
+        calibrate();
+        break;
       case "mafiaAccuse":
         ui.mafiaAccuse = !ui.mafiaAccuse;
         break;
@@ -1208,15 +1211,32 @@
         <div class="maze-phone ${bump ? "bump" : ""}">${GS.mazeSvg(g.maze, { pos: g.pos, trail: g.trail })}</div>
         <p class="center muted">${g.step === "ready" ? "Starter snart …" : `${g.bumps} kræsj i veggen`}</p>`;
     }
-    const arrow = (dir, label) => roundBtn(label, "move", { dir }, "maze-arrow");
+    const arrow = (dir, label) => `<button class="maze-arrow" data-maze-dir="${dir}">${label}</button>`;
     return head + `<h2 class="center">Du styrer i blinde – lytt til ${esc(g.partner)}!</h2>
       ${bump ? `<p class="center bad-text">💥 Vegg!</p>` : `<p class="center muted">${g.step === "ready" ? "Starter snart …" : "Trykk én gang per rute."}</p>`}
+      <p class="center muted">Hold inne en pil for å gå flere ruter.</p>
       <div class="maze-arrows"><span></span>${arrow("up", "▲")}<span></span>${arrow("left", "◀")}<span></span>${arrow("right", "▶")}<span></span>${arrow("down", "▼")}<span></span></div>`;
   }
 
+  // Labyrint: trykk for ett steg, hold inne for å fortsette i samme retning
+  const mazeHold = { timer: null };
+  document.addEventListener("pointerdown", e => {
+    const btn = e.target.closest("[data-maze-dir]");
+    if (!btn) return;
+    e.preventDefault();
+    const dir = btn.dataset.mazeDir;
+    clearInterval(mazeHold.timer);
+    round("move", { dir });
+    mazeHold.timer = setInterval(() => quiet("move", { dir }), 220);
+  });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(type => document.addEventListener(type, () => {
+    clearInterval(mazeHold.timer);
+    mazeHold.timer = null;
+  }));
+
   // ---------- Bevegelse (gyroskop) ----------
 
-  const motion = { on: false, gamma: 0, beta: 0, beta0: null, touch: null };
+  const motion = { on: false, gamma: 0, beta: 0, beta0: null, gamma0: null, calibrated: false, touch: null };
 
   async function enableMotion() {
     try {
@@ -1230,11 +1250,11 @@
           motion.gamma = e.gamma;
           motion.beta = e.beta;
           if (motion.beta0 === null) motion.beta0 = e.beta;
+          if (motion.gamma0 === null) motion.gamma0 = e.gamma;
         });
       }
       motion.on = true;
-      motion.beta0 = null; // kalibrer: slik telefonen holdes nå, er «flatt»
-      toast("Bevegelse er på. Hold telefonen slik du vil ha den.");
+      toast("Bevegelse er på. Hold mobilen slik du vil ha den, og trykk «Kalibrer».");
     } catch (e) {
       toast("Fikk ikke bruke bevegelse. Bruk fingeren på feltet i stedet.", true);
     }
@@ -1246,12 +1266,34 @@
     if (motion.touch) return motion.touch;
     if (!motion.on) return { x: 0, y: 0 };
     const clamp = v => Math.max(-1, Math.min(1, v));
-    return { x: clamp(motion.gamma / 25), y: clamp((motion.beta - (motion.beta0 ?? motion.beta)) / 25) };
+    return {
+      x: clamp((motion.gamma - (motion.gamma0 ?? motion.gamma)) / 25),
+      y: clamp((motion.beta - (motion.beta0 ?? motion.beta)) / 25)
+    };
+  }
+
+  // Kalibrering: slik mobilen holdes nå, regnes som «flatt»
+  function calibrate() {
+    motion.beta0 = motion.beta;
+    motion.gamma0 = motion.gamma;
+    motion.calibrated = true;
+    toast("Kalibrert! ✓");
+  }
+
+  // Felles første steg for alle balansespillene: slå på bevegelse og kalibrer
+  function calibrationScreen(titleText, intro, g) {
+    const step1 = motion.on ? "✅ Bevegelse er på" : uiBtn("1. 📱 Slå på bevegelse", "motion", {}, "huge-btn");
+    const step2 = motion.on
+      ? uiBtn(motion.calibrated ? "✅ Kalibrert – trykk igjen for å kalibrere på nytt" : "2. 🎯 Hold mobilen slik du vil, og trykk her", "calibrate", {}, motion.calibrated ? "secondary" : "huge-btn")
+      : `<p class="center muted">2. Kalibrer</p>`;
+    return `<h1 class="center">${titleText}</h1><p class="center big">${intro}</p>
+      <div class="col calib-steps">${step1}${step2}</div>
+      <p class="center muted">Starter om ${countdown(g.endsAt)} s. Uten bevegelse: dra fingeren på feltet i stedet.</p>`;
   }
 
   function motionButton() {
     return motion.on
-      ? uiBtn("🎯 Kalibrer (hold flatt og trykk)", "motion", {}, "secondary")
+      ? uiBtn("🎯 Kalibrer på nytt", "calibrate", {}, "secondary")
       : uiBtn("📱 Slå på bevegelse", "motion", {}, "huge-btn");
   }
 
@@ -1279,16 +1321,15 @@
   function roundBalanse(g) {
     if (g.step === "ready") {
       Object.assign(bal, { x: 0, y: 0, vx: 0, vy: 0, last: null });
-      return `<h1 class="center">Balanser ballen</h1><p class="center big">Hold mobilen flatt og vipp for å styre ballen. Hold den i ringen!</p>
-        ${motionButton()}<p class="center muted">Starter om ${countdown(g.endsAt)} s. Uten bevegelse: dra fingeren på feltet.</p>`;
+      return calibrationScreen("Balanser ballen", "Vipp mobilen for å styre ballen. Hold den så nær punktet som mulig!", g);
     }
     if (g.step === "done") {
       const r = g.result;
       return waiting(r ? `Nr. ${r.place} – ${Math.round(r.share * 100)} % balanse` : "Ferdig!", r ? `+${r.points} poeng` : "");
     }
-    return `<p class="center">${countdown(g.endsAt)} s · hold ballen i ringen!</p>
+    return `<div class="bal-head"><span>${countdown(g.endsAt)} s</span><span>Poeng: <b id="bal-points">0</b></span></div>
       <canvas id="bal-canvas" class="bal-canvas" width="600" height="600" data-tiltpad></canvas>
-      ${motion.on ? "" : motionButton()}`;
+      ${motionButton()}`;
   }
 
   function balTarget(g, t) {
@@ -1321,14 +1362,12 @@
     const tg = balTarget(g, t);
     ctx.fillStyle = "#16205a";
     ctx.fillRect(0, 0, 600, 600);
-    ctx.fillStyle = "rgba(79,209,122,.25)";
-    ctx.beginPath();
-    ctx.arc(P(tg.x), P(tg.y), g.targetRadius * 270, 0, Math.PI * 2);
-    ctx.fill();
     ctx.fillStyle = "#4fd17a";
     ctx.beginPath();
-    ctx.arc(P(tg.x), P(tg.y), 10, 0, Math.PI * 2);
+    ctx.arc(P(tg.x), P(tg.y), 14, 0, Math.PI * 2);
     ctx.fill();
+    const pts = document.getElementById("bal-points");
+    if (pts && pts.textContent !== String(g.points)) pts.textContent = g.points;
     ctx.fillStyle = "#ffd84d";
     ctx.beginPath();
     ctx.arc(P(bal.x), P(bal.y), 26, 0, Math.PI * 2);
@@ -1343,11 +1382,11 @@
     const head = `<p class="muted">Lag ${g.teamNo}${g.partner ? ` · med ${esc(g.partner)}` : ""}${g.step === "play" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
     if (g.step === "done") return head + waiting(g.place ? `I mål som nr. ${g.place}! 🏁` : "Tiden er ute", `+${g.points} poeng`);
     if (g.place) return head + waiting(`I mål som nr. ${g.place}! 🏁`, "Venter på de andre lagene …");
+    if (g.step === "ready") return head + calibrationScreen(`Du styrer ${axisText}`, "Se på ballen på hovedskjermen og vipp mobilen. Snakk sammen!", g);
     return head + `<h1 class="center">Du styrer ${axisText}</h1>
       <p class="center">Se på ballen på hovedskjermen og vipp mobilen. Snakk sammen!</p>
       <div class="tilt-pad" data-tiltpad><div class="tilt-meter" id="tilt-meter"></div></div>
-      ${motionButton()}
-      ${g.step === "ready" ? `<p class="center muted">Starter om ${countdown(g.endsAt)} s</p>` : ""}`;
+      ${motionButton()}`;
   }
 
   GS.onFrame(() => {
