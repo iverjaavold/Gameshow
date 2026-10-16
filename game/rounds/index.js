@@ -328,6 +328,46 @@ const GAMES = {
   }
 };
 
+/*
+  Kategorier til sortering og filtrering i spillvalget.
+  format: «lag» (to og to eller lag mot lag) eller «individuell».
+  tags: quiz, kreativ, fysisk (skjer i rommet), reaksjon, strategi, bevegelse (gyroskop).
+*/
+const CATEGORIES = {
+  r1: ["lag", ["strategi"]],
+  r2: ["individuell", ["quiz", "reaksjon"]],
+  r3: ["lag", ["kreativ"]],
+  r4: ["lag", ["kreativ", "fysisk"]],
+  r5: ["individuell", ["fysisk", "strategi"]],
+  r6: ["lag", ["quiz"]],
+  r7: ["lag", ["strategi", "fysisk"]],
+  r8: ["individuell", ["strategi"]],
+  r9: ["individuell", ["quiz", "reaksjon"]],
+  r10: ["individuell", ["strategi"]],
+  dyr: ["individuell", ["kreativ"]],
+  tretti: ["individuell", ["reaksjon"]],
+  tenk: ["individuell", ["kreativ"]],
+  auksjon: ["individuell", ["strategi"]],
+  tegn: ["individuell", ["kreativ"]],
+  nynn: ["individuell", ["kreativ", "fysisk"]],
+  sekvens: ["individuell", ["reaksjon"]],
+  gale: ["individuell", ["quiz", "fysisk"]],
+  charades: ["individuell", ["kreativ", "fysisk"]],
+  rute: ["individuell", ["quiz"]],
+  labyrint: ["lag", ["fysisk"]],
+  balanse: ["individuell", ["bevegelse", "reaksjon"]],
+  ballabyrint: ["lag", ["bevegelse"]],
+  lyd: ["individuell", ["quiz"]],
+  mafia: ["individuell", ["fysisk", "strategi"]],
+  reaksjon: ["individuell", ["reaksjon"]],
+  estimat: ["individuell", ["quiz"]],
+  gruva: ["individuell", ["strategi", "reaksjon"]],
+  bilde: ["individuell", ["quiz"]]
+};
+Object.entries(CATEGORIES).forEach(([id, [format, tags]]) => {
+  if (GAMES[id]) Object.assign(GAMES[id], { format, tags });
+});
+
 const ALL_IDS = Object.keys(GAMES);
 
 function categoryOptions(list) {

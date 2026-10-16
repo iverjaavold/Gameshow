@@ -361,6 +361,51 @@ class Game {
     this.prepareRound(0);
   }
 
+  /*
+    Testmodus: spill ett spill med en gang, med bots nok til at det kan spilles.
+    Ingen betting, ingen medspillerkjøp og ingen intro. Etterpå kan hosten gå tilbake til lobbyen.
+  */
+  testGame(id) {
+    if (this.phase !== "lobby") throw new GameError("Testen startes fra lobbyen.");
+    const g = GAMES[id];
+    if (!g || !isAvailable(id)) throw new GameError("Det spillet kan ikke testes nå.");
+    const need = Math.max(config.MIN_PLAYERS, g.recommended || 0, g.format === "lag" ? 4 : 3);
+    while (this.players.size < need) this.addBot();
+    this.testMode = true;
+    this.selectionBeforeTest = this.selection;
+    this.plan = [id];
+    this.limits = { joinCloseIndex: Infinity, shopCloseIndex: Infinity };
+    this.bettingIndex = -1;
+    this.buyIndex = -1;
+    this.prepareRound(0);
+    this.startRound();
+  }
+
+  // Tilbake til lobbyen etter en test: nullstiller spillet, men beholder spillerne.
+  backToLobby() {
+    if (!this.testMode) throw new GameError("Bare tilgjengelig i testmodus.");
+    if (this.round && !this.round.ended) this.round.ended = true;
+    this.clearRoundTimers();
+    this.clearPhaseAuto();
+    if (this.theft) this.cancel(this.theft.timer);
+    if (this.buy) this.cancel(this.buy.timer);
+    if (this.paused) this.resume();
+    Object.assign(this, {
+      phase: "lobby", round: null, roundSummary: [], plan: [], index: -1,
+      limits: { joinCloseIndex: Infinity, shopCloseIndex: Infinity },
+      joinOpen: true, shopOpen: true, crownId: null,
+      bettingIndex: -1, bets: new Map(), bettingDone: false,
+      buyIndex: -1, buy: null, buyDone: false, fixedTeams: [],
+      leaderPower: null, leaderChoices: {}, theft: null,
+      testMode: false, selection: this.selectionBeforeTest || this.selection
+    });
+    this.playerList.forEach(p => Object.assign(p, {
+      score: 0, inventory: [], upgrades: { sword: 0, shield: 0, star: 0 }, catchUp: 0, bonusBlocks: 0, roundBase: 0
+    }));
+    this.addFeed("Tilbake i lobbyen");
+    this.changed();
+  }
+
   // Går til første steg før spill nr. i: betting, kjøp av medspiller eller intro.
   prepareRound(i) {
     this.clearPhaseAuto();
@@ -840,6 +885,8 @@ class Game {
       case "setUpcoming": return this.setUpcoming(data.ids);
       case "addBot": return this.addBot();
       case "pause": return this.pause();
+      case "testGame": return this.testGame(String(data.id || ""));
+      case "backToLobby": return this.backToLobby();
       case "resume": return this.resume();
       case "startGame": return this.startGame();
       case "kick": return this.kick(data.playerId);
@@ -901,6 +948,7 @@ class Game {
       phase: this.phase,
       serverNow: this.now(),
       paused: this.paused,
+      testMode: !!this.testMode,
       round: this.roundInfo(),
       joinOpen: this.joinOpen,
       shopOpen: this.shopOpen,
@@ -920,6 +968,7 @@ class Game {
       view.games = ALL_IDS.filter(id => !GAMES[id].paused).map(id => {
         const g = GAMES[id];
         return { id, title: g.title, desc: g.desc, minutes: g.minutes, big: !!g.big, type: g.type, recommended: g.recommended || null,
+          format: g.format || "individuell", tags: g.tags || [],
           missing: isAvailable(id) ? null : g.needs || "noe" };
       });
     }

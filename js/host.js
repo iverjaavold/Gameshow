@@ -14,6 +14,7 @@
   const els = {
     code: document.getElementById("code"),
     shareButton: document.getElementById("share-button"),
+    testBadge: document.getElementById("test-badge"),
     roundLabel: document.getElementById("round-label"),
     connection: document.getElementById("connection"),
     feed: document.getElementById("feed"),
@@ -88,10 +89,20 @@
     }
     const sel = e.target.closest("[data-select]");
     if (sel) {
-      // I lobbyen: hele utvalget. Under spillet: spillene videre (spilte store runder kan ikke velges).
+      // Velg/fjern alle spillene som vises med filteret som er valgt
       const inGame = view.phase !== "lobby";
-      const all = view.games.map(g => g.id).filter(id => !inGame || !view.upcoming.locked.includes(id));
-      send(inGame ? "setUpcoming" : "setSelection", { ids: sel.dataset.select === "all" ? all : [] });
+      const shown = visibleGames().map(g => g.id).filter(id => !inGame || !view.upcoming.locked.includes(id));
+      const set = new Set(currentSelection());
+      shown.forEach(id => (sel.dataset.select === "all" ? set.add(id) : set.delete(id)));
+      setSelection([...set]);
+      return;
+    }
+    const filter = e.target.closest("[data-filter]");
+    if (filter) {
+      picker.filter = filter.dataset.filter;
+      store(PICKER_KEY, { filter: picker.filter, sort: picker.sort });
+      drawStage();
+      drawPlanner();
       return;
     }
     if (e.target.closest("[data-save-setup]")) {
@@ -109,12 +120,17 @@
   document.addEventListener("change", e => {
     const box = e.target.closest("[data-pick]");
     if (box) {
-      const id = box.dataset.pick;
-      const inGame = view.phase !== "lobby";
-      const set = new Set(inGame ? view.upcoming.selected : view.selection);
-      if (box.checked) set.add(id);
-      else set.delete(id);
-      send(inGame ? "setUpcoming" : "setSelection", { ids: [...set] });
+      const set = new Set(currentSelection());
+      if (box.checked) set.add(box.dataset.pick);
+      else set.delete(box.dataset.pick);
+      setSelection([...set]);
+      return;
+    }
+    if (e.target.id === "picker-sort") {
+      picker.sort = e.target.value;
+      store(PICKER_KEY, { filter: picker.filter, sort: picker.sort });
+      drawStage();
+      drawPlanner();
       return;
     }
     if (e.target.id === "setup-select" && e.target.value) {
@@ -156,6 +172,9 @@
     els.shareButton.classList.toggle("hidden", !view.joinOpen);
     els.roundLabel.textContent = view.round ? `Spill ${view.round.number} av ${view.round.total} · ${view.round.title}` : "Lobby";
     document.body.classList.toggle("compact", view.phase === "round");
+    document.body.classList.toggle("in-lobby", view.phase === "lobby");
+    document.body.classList.toggle("test-mode", !!view.testMode);
+    els.testBadge.classList.toggle("hidden", !view.testMode);
     drawFeed();
     drawBoard();
     drawStage();
@@ -227,6 +246,7 @@
       buttons.unshift(`<button class="secondary planner-toggle" data-planner="1">📋 Velg spill videre</button>`);
       buttons.unshift(view.paused ? button("▶ Fortsett", "resume", {}, "good") : button("⏸ Pause", "pause", {}, "secondary"));
     }
+    if (view.testMode && p !== "lobby" && p !== "results") buttons.unshift(button("↩ Avslutt test", "backToLobby", {}, "secondary"));
     const menuHtml = menu.length
       ? `<div class="menu ${showMenu ? "" : "hidden"}">${menu.join("")}</div><button class="menu-toggle" data-menu="1" title="Manuelle valg">⋯</button>`
       : "";
@@ -252,49 +272,124 @@
   function stageLobby() {
     const figs = view.players.map(p => `
       <div class="lobby-fig">
-        ${figureSvg(p.figure, p.upgrades, { size: 76 })}
+        ${figureSvg(p.figure, p.upgrades, { size: 64 })}
         <span>${esc(p.name)}${p.bot ? " 🤖" : ""}</span>
-        <button class="kick secondary" data-send="${attr({ type: "kick", data: { playerId: p.id } })}" data-confirm="Fjerne ${esc(p.name)}?">✕</button>
+        <button class="kick" data-send="${attr({ type: "kick", data: { playerId: p.id } })}" data-confirm="Fjerne ${esc(p.name)}?" title="Fjern">✕</button>
       </div>`).join("");
-
-
+    const n = view.players.length;
     return `<div class="lobby">
       <div class="col lobby-left">
-        <div class="join-big">
-          <p class="muted" style="font-size:1.3em">Scan QR-koden med mobilen for å bli med</p>
+        <div class="card join-card">
           <div class="join-qr">${joinQr}</div>
-          <button class="secondary" data-share>Del lenke</button>
+          <div class="join-text">
+            <div class="eyebrow">Bli med</div>
+            <h2>Scan QR-koden med mobilen</h2>
+            <p class="muted">Eller gå til forsiden og skriv koden <b class="code-inline">${esc(code)}</b>.</p>
+            <div class="row"><button class="secondary small" data-share>🔗 Del lenke</button>
+              <a class="btn-link secondary small" href="${esc(GS.joinUrl(code))}" target="_blank" rel="noopener">📱 Åpne mobilvisning</a></div>
+          </div>
         </div>
-        <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>
-        <p class="center muted">${view.players.length} spiller${view.players.length === 1 ? "" : "e"} · minst ${view.minPlayers} for å starte</p>
-        <div class="center">${button("+ Legg til bot (testmodus)", "addBot", {}, "secondary small")}</div>
+        <div class="card players-card">
+          <div class="row" style="justify-content:space-between">
+            <div><div class="eyebrow">Spillere</div><h2>${n} med${n < view.minPlayers ? ` · minst ${view.minPlayers} for å starte` : ""}</h2></div>
+            ${button("+ Legg til bot", "addBot", {}, "secondary small")}
+          </div>
+          <div class="lobby-figs">${figs || `<p class="muted">Venter på spillere …</p>`}</div>
+        </div>
       </div>
-      <div class="panel col lobby-right">
+      <div class="card col lobby-right">
         <div class="row" style="justify-content:space-between">
-          <h2 style="margin:0">Velg spill</h2>
+          <div><div class="eyebrow">Velg spill</div><h2>Hva skal dere spille?</h2></div>
           <span class="tag yellow">ca. ${view.estimatedMinutes} min</span>
         </div>
         ${pickerButtons()}
-        <p class="muted" style="margin:0">Appen setter opp rekkefølgen selv. Finalen kommer alltid sist.</p>
-        ${gamePicker(view.selection, [])}
+        <p class="muted" style="margin:0">Appen setter opp rekkefølgen selv, og finalen kommer alltid sist. Trykk <b>▶ Test</b> for å prøve ett spill alene med bots.</p>
+        ${gamePicker([], { test: true })}
       </div>
     </div>`;
   }
 
-  // Avkrysningsliste over spill (brukes i lobbyen og i menyen «Velg spill videre»)
-  function gamePicker(selectedIds, lockedIds) {
-    const selected = new Set(selectedIds);
+  // ---------- Spillvalg: filtrering, sortering og valg ----------
+
+  const PICKER_KEY = "gs-velger";
+  const picker = Object.assign({ filter: "alle", sort: "standard" }, store(PICKER_KEY) || {});
+  let pendingSelection = null; // valg som er sendt, men ikke bekreftet av serveren ennå
+
+  const FILTERS = [
+    ["alle", "Alle"], ["lag", "👥 Lagspill"], ["individuell", "🙋 Individuelt"], ["store", "⭐ Store runder"],
+    ["mini", "⚡ Minirunder"], ["quiz", "❓ Quiz"], ["kreativ", "🎨 Kreativt"], ["fysisk", "🕺 I rommet"],
+    ["reaksjon", "⏱ Reaksjon"], ["strategi", "♟ Strategi"], ["bevegelse", "📱 Vipp mobilen"], ["kort", "⏳ Korte"]
+  ];
+  const TAG_LABELS = { quiz: "Quiz", kreativ: "Kreativt", fysisk: "I rommet", reaksjon: "Reaksjon", strategi: "Strategi", bevegelse: "Vipp mobilen" };
+
+  function serverSelection() {
+    return view.phase === "lobby" ? view.selection : view.upcoming.selected;
+  }
+
+  function currentSelection() {
+    const server = serverSelection();
+    if (pendingSelection && pendingSelection.slice().sort().join() === server.slice().sort().join()) pendingSelection = null;
+    return pendingSelection || server;
+  }
+
+  function setSelection(ids) {
+    pendingSelection = ids;
+    drawStage();
+    drawPlanner();
+    send(view.phase === "lobby" ? "setSelection" : "setUpcoming", { ids });
+  }
+
+  function matchesFilter(g) {
+    const f = picker.filter;
+    if (f === "alle") return true;
+    if (f === "lag" || f === "individuell") return g.format === f;
+    if (f === "store") return g.big;
+    if (f === "mini") return !g.big;
+    if (f === "kort") return g.minutes <= 3;
+    return g.tags.includes(f);
+  }
+
+  function visibleGames() {
+    const list = view.games.filter(matchesFilter);
+    const by = {
+      kortest: (a, b) => a.minutes - b.minutes,
+      lengst: (a, b) => b.minutes - a.minutes,
+      navn: (a, b) => a.title.localeCompare(b.title, "no")
+    }[picker.sort];
+    return by ? list.slice().sort(by) : list;
+  }
+
+  // Liste over spill med avkryssing, merkelapper og testknapp (lobbyen og «Velg spill videre»)
+  function gamePicker(lockedIds, opts = {}) {
+    const selected = new Set(currentSelection());
     const locked = new Set(lockedIds);
-    const list = big => view.games.filter(g => g.big === big).map(g => {
+    const card = g => {
       const isLocked = locked.has(g.id) || !!g.missing;
       const on = selected.has(g.id);
-      return `<label class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
-        <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
-        <span class="grow"><b>${esc(g.title)}</b>${g.recommended ? ` <span class="tag ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+ deltakere</span>` : ""}<small>${g.missing ? `Mangler ${esc(g.missing)} – se README` : isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small></span>
-        <span class="minutes">${g.minutes} min</span>
-      </label>`;
-    }).join("");
-    return `<div class="pick-scroll"><h3>Store runder</h3>${list(true)}<h3>Minirunder</h3>${list(false)}</div>`;
+      const badges = [
+        `<span class="badge ${g.format === "lag" ? "team" : ""}">${g.format === "lag" ? "👥 Lag" : "🙋 Individuelt"}</span>`,
+        ...g.tags.map(t => `<span class="badge">${TAG_LABELS[t] || t}</span>`),
+        g.recommended ? `<span class="badge ${view.players.length < g.recommended ? "warn" : ""}">Anbefalt ${g.recommended}+</span>` : ""
+      ].join("");
+      return `<div class="game-pick ${on ? "on" : ""} ${isLocked ? "locked" : ""}">
+        <label class="pick-main">
+          <input type="checkbox" data-pick="${g.id}" ${on ? "checked" : ""} ${isLocked ? "disabled" : ""}>
+          <span class="grow"><b>${esc(g.title)}</b>
+            <small>${g.missing ? `Mangler ${esc(g.missing)} – se README` : isLocked ? "Spilt eller pågår nå" : esc(g.desc)}</small>
+            <span class="badges">${badges}</span></span>
+        </label>
+        <div class="pick-side"><span class="minutes">${g.minutes} min</span>
+          ${opts.test && !g.missing ? `<button class="test-btn" data-send="${attr({ type: "testGame", data: { id: g.id } })}" title="Spill bare dette spillet nå, med bots">▶ Test</button>` : ""}</div>
+      </div>`;
+    };
+    const games = visibleGames();
+    let body;
+    if (!games.length) body = `<p class="muted center">Ingen spill i denne kategorien.</p>`;
+    else if (picker.sort === "standard") {
+      const big = games.filter(g => g.big), mini = games.filter(g => !g.big);
+      body = (big.length ? `<h3>Store runder</h3>${big.map(card).join("")}` : "") + (mini.length ? `<h3>Minirunder</h3>${mini.map(card).join("")}` : "");
+    } else body = games.map(card).join("");
+    return `<div class="pick-scroll">${body}</div>`;
   }
 
   function pickerButtons() {
@@ -302,12 +397,18 @@
     const setupSelect = setups.length
       ? `<select id="setup-select"><option value="">Bruk et lagret oppsett …</option>${setups.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>`
       : "";
-    return `<div class="row">
-      <button class="secondary small" data-select="all">Velg alle</button>
-      <button class="secondary small" data-select="none">Fjern alle</button>
-      <button class="secondary small" data-save-setup="1">Lagre oppsett</button>
-      ${setupSelect}
-    </div>`;
+    const chips = FILTERS.map(([id, label]) => `<button class="chip ${picker.filter === id ? "active" : ""}" data-filter="${id}">${label}</button>`).join("");
+    const sorts = [["standard", "Standard rekkefølge"], ["kortest", "Kortest først"], ["lengst", "Lengst først"], ["navn", "Navn A–Å"]]
+      .map(([v, l]) => `<option value="${v}" ${picker.sort === v ? "selected" : ""}>${l}</option>`).join("");
+    const shown = picker.filter === "alle" ? "alle" : "viste";
+    return `<div class="chips">${chips}</div>
+      <div class="row picker-tools">
+        <button class="secondary small" data-select="all">Velg ${shown}</button>
+        <button class="secondary small" data-select="none">Fjern ${shown}</button>
+        <button class="secondary small" data-save-setup="1">Lagre oppsett</button>
+        ${setupSelect}
+        <select id="picker-sort" class="sort-select" aria-label="Sorter">${sorts}</select>
+      </div>`;
   }
 
   // Menyen «Velg spill videre» under spillet
@@ -332,7 +433,7 @@
       </div>
       <p class="muted" style="margin:0">Gjelder spillene etter «${esc(view.round ? view.round.title : "")}». Endringer lagres med en gang, og appen setter opp rekkefølgen på nytt.</p>
       ${pickerButtons()}
-      ${gamePicker(u.selected, u.locked)}
+      ${gamePicker(u.locked)}
       <div><b>Rekkefølgen videre:</b>${order}</div>
     </div>`);
   }
@@ -410,10 +511,12 @@
         <div class="block" style="height:${height}px">${r.place}</div>
       </div>` : "";
     const rest = res.slice(3).map(r => `<li>${r.place}. ${esc(r.name)}</li>`).join("");
+    const back = view.testMode
+      ? `<div class="center">${button("↩ Tilbake til lobbyen – test et annet spill", "backToLobby", {}, "big-control")}</div>` : "";
     return `<div class="hero">
-      <div class="round-no">Spillet er over</div>
+      <div class="round-no">${view.testMode ? "Testen er ferdig" : "Spillet er over"}</div>
       <h1>${esc(res[0].name)} vinner!</h1>
-    </div>
+    </div>${back}
     <div class="podium">${step(res[1], 120)}${step(res[0], 180)}${step(res[2], 80)}</div>
     ${rest ? `<ul class="rules" style="max-width:500px;margin:0 auto">${rest}</ul>` : ""}`;
   }
@@ -1012,17 +1115,21 @@
 
   function roundBalanse(g) {
     if (g.step === "ready") {
-      return title("Hold mobilen flatt!", "Balanser ballen") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`;
+      return title("Kalibrer mobilen!", "Balanser ballen") + `<p class="center" style="font-size:1.3em">Slå på bevegelse, hold mobilen slik du vil og trykk «Kalibrer». Starter om ${countdown(g.endsAt)} s</p>`;
     }
     if (g.step === "done" && g.results) {
       const rows = g.results.map((r, i) => [`${i + 1}. <b>${esc(r.name)}</b>`, `${Math.round(r.share * 100)} %`, `+${r.points}`]);
       return title("Hvem holdt balansen?", "Balanser ballen") + resultTable(["Spiller", "Balanse", "Poeng"], rows);
     }
     const pos = v => 50 + v * 45;
-    const balls = g.balls.map(b => `<div class="bal-ball" style="left:${pos(b.x)}%;top:${pos(b.y)}%">${figureSvg(b.figure, b.upgrades, { size: 40 })}<small>${esc(b.name)}</small></div>`).join("");
-    const size = g.targetRadius * 90;
+    const balls = g.balls.map(b => `<div class="bal-ball" style="left:${pos(b.x)}%;top:${pos(b.y)}%">${figureSvg(b.figure, b.upgrades, { size: 40 })}<small>${esc(b.name)} · ${b.points}</small></div>`).join("");
+    const scores = g.balls.slice().sort((a, b) => b.points - a.points)
+      .map(b => `<div class="bal-score"><span>${esc(b.name)}</span><b>${b.points}</b></div>`).join("");
     return `<div class="round-no center">Balanser ballen · ${countdown(g.endsAt)} s</div>
-      <div class="bal-arena"><div class="bal-target" style="left:${pos(g.target.x)}%;top:${pos(g.target.y)}%;width:${size}%;height:${size}%"></div>${balls}</div>`;
+      <div class="bal-layout">
+        <div class="bal-arena"><div class="bal-dot" style="left:${pos(g.target.x)}%;top:${pos(g.target.y)}%"></div>${balls}</div>
+        <div class="bal-scores"><h3>Poeng</h3>${scores}</div>
+      </div>`;
   }
 
   function roundBallabyrint(g) {
@@ -1037,7 +1144,7 @@
           <circle cx="${t.x.toFixed(2)}" cy="${t.y.toFixed(2)}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/></svg>
       </div>`).join("");
     const head = g.step === "ready"
-      ? title("Én vipper sidelengs, én forover!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Trykk «Slå på bevegelse» på mobilen. Starter om ${countdown(g.endsAt)} s</p>`
+      ? title("Kalibrer mobilen!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Én vipper sidelengs, én forover. Slå på bevegelse, hold mobilen slik du vil og trykk «Kalibrer». Starter om ${countdown(g.endsAt)} s</p>`
       : `<div class="round-no center">Ball gjennom labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
     return head + `<div class="ballmaze-teams">${boards}</div>`;
   }

@@ -1,7 +1,8 @@
 /*
   Minirunde – Balanser ballen (gyroskop).
-  Alle får en ball på mobilen og styrer den ved å vippe telefonen. Målet er å holde ballen
-  så nær senteret som mulig. Senteret flytter seg 3–4 ganger i løpet av ett minutt.
+  Alle kalibrerer telefonen først, og styrer så en ball ved å vippe. Målet er å holde ballen
+  så nær punktet som mulig. Punktet flytter seg 6–8 ganger i løpet av ett minutt.
+  Poengene samles opp underveis og vises hele tiden på mobilen og hovedskjermen.
   Ballen regnes ut på mobilen, som sender posisjonen til serveren flere ganger i sekundet.
   Serveren gir poeng etter hvor nær senteret ballen har vært i gjennomsnitt.
   Koordinater: -1 til 1 i begge retninger.
@@ -26,7 +27,7 @@ class BalanceRound extends Round {
     if (this.step !== "ready") return;
     this.step = "play";
     this.startedAt = this.game.now();
-    // Senteret: start i midten, flytt det 3–4 ganger til tilfeldige steder
+    // Punktet: start i midten, flytt det TARGET_MOVES_MIN–MAX ganger til tilfeldige steder
     const moves = randInt(C.TARGET_MOVES_MIN, C.TARGET_MOVES_MAX);
     const span = ms(C.PLAY_SECONDS) / (moves + 1);
     this.targets = [{ at: this.startedAt, x: 0, y: 0 }];
@@ -72,6 +73,11 @@ class BalanceRound extends Round {
     ball.x = x;
     ball.y = y;
     ball.last = now;
+  }
+
+  // Poeng så langt (samme regnestykke som i end())
+  pointsSoFar(ball) {
+    return Math.round(Math.min(1, ball.score / ms(C.PLAY_SECONDS)) * C.MAX_POINTS);
   }
 
   end() {
@@ -127,7 +133,7 @@ class BalanceRound extends Round {
       target: { x: t.x, y: t.y },
       targetRadius: C.SCORE_RADIUS,
       balls: [...this.balls.entries()].filter(([id]) => this.player(id)).map(([id, b]) => ({
-        ...this.publicPlayer(id), x: b.x, y: b.y
+        ...this.publicPlayer(id), x: b.x, y: b.y, points: this.pointsSoFar(b)
       })),
       results: this.results ? this.results.map(r => ({ name: this.name(r.id), share: r.share, points: r.points })) : null,
       actions: [],
@@ -144,6 +150,7 @@ class BalanceRound extends Round {
       // Hele planen for senteret, så mobilen kan flytte det i riktig øyeblikk selv
       targets: this.step === "play" ? this.targets : null,
       targetRadius: C.SCORE_RADIUS,
+      points: this.balls.has(player.id) ? this.pointsSoFar(this.balls.get(player.id)) : 0,
       result: mine ? { share: mine.share, points: mine.points, place: this.results.indexOf(mine) + 1 } : null
     };
   }

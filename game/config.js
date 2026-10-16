@@ -318,8 +318,8 @@ module.exports = {
 
   // Minirunde – Labyrint (samarbeid)
   LABYRINT: {
-    WIDTH: 7,
-    HEIGHT: 7,
+    WIDTH: 9, // større labyrint = vanskeligere
+    HEIGHT: 9,
     READY_SECONDS: 10,
     PLAY_SECONDS: 150,
     REVEAL_SECONDS: 10,
@@ -329,11 +329,11 @@ module.exports = {
 
   // Minirunde – Balanser ballen (gyroskop)
   BALANSE: {
-    READY_SECONDS: 12, // tid til å slå på bevegelse og holde telefonen flatt
+    READY_SECONDS: 15, // tid til å slå på bevegelse og kalibrere
     PLAY_SECONDS: 60,
     REVEAL_SECONDS: 10,
-    TARGET_MOVES_MIN: 3,
-    TARGET_MOVES_MAX: 4,
+    TARGET_MOVES_MIN: 6, // punktet flytter seg så mange ganger i løpet av minuttet
+    TARGET_MOVES_MAX: 8,
     TARGET_RANGE: 0.6, // hvor langt fra midten senteret kan flytte seg
     SCORE_RADIUS: 0.5, // utenfor denne avstanden fra senteret gir det ingen poeng
     BROADCAST_SECONDS: 0.2,
@@ -342,16 +342,16 @@ module.exports = {
 
   // Minirunde – Ball gjennom labyrint (samarbeid, gyroskop)
   BALLABYRINT: {
-    WIDTH: 5,
-    HEIGHT: 4,
-    READY_SECONDS: 12,
+    WIDTH: 7, // større labyrint = vanskeligere
+    HEIGHT: 5,
+    READY_SECONDS: 15, // tid til å slå på bevegelse og kalibrere
     PLAY_SECONDS: 120,
     REVEAL_SECONDS: 10,
     TICK_SECONDS: 0.05,
     BROADCAST_EVERY: 2, // sender ballene til skjermene hver 2. tikk (10 ganger i sekundet)
-    ACCEL: 14, // fliser per sekund² ved full vipping
-    FRICTION: 0.93,
-    MAX_SPEED: 4,
+    ACCEL: 24, // fliser per sekund² ved full vipping
+    FRICTION: 0.94,
+    MAX_SPEED: 7,
     BRAKE_DISTANCE: 0.6, // nærmere en vegg enn dette begynner ballen å bremse
     MIN_BRAKE: 0.25, // laveste fart (andel) helt inntil veggen
     FINISH_POINTS: [600, 450, 350, 250],
