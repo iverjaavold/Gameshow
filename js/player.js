@@ -1073,7 +1073,7 @@
   document.addEventListener("visibilitychange", keepAwake);
 
   document.addEventListener("pointerdown", e => {
-    if (e.target.closest("button, [data-maze-dir], .seq-btn") && navigator.vibrate) navigator.vibrate(8);
+    if (e.target.closest("button, .seq-btn") && navigator.vibrate) navigator.vibrate(8);
   }, { passive: true });
 
   // ---------- Nye minispill ----------
@@ -1232,39 +1232,30 @@
       ${g.passesLeft > 0 ? roundBtn(`⏭ Pass (${g.passesLeft} igjen)`, "pass", {}, "secondary") : ""}`;
   }
 
+  // Labyrint: navigatøren ser labyrinten og ballen, styreren vipper mobilen i blinde
+  let lastBumpAt = 0;
   function roundLabyrint(g) {
     if (!g.role) return waiting("Labyrint", "Du er ikke med på et lag denne gangen.");
-    const head = `<p class="muted">Labyrint · med ${esc(g.partner)}${g.step === "play" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
+    const head = `<p class="muted">Med ${esc(g.partner)}${g.step === "play" ? ` · ${countdown(g.endsAt)} s` : ""}</p>`;
     if (g.step === "done") return head + waiting(g.place ? `I mål som nr. ${g.place}! 🏁` : `${Math.round(g.progress * 100)} % av veien`, `+${g.points} poeng`);
     if (g.place) return head + waiting(`I mål som nr. ${g.place}! 🏁`, "Venter på de andre lagene …");
     const bump = g.bumpAt && GS.now() - g.bumpAt < 800;
     if (g.role === "navigator") {
       return head + `<h2 class="center">Du ser labyrinten – led ${esc(g.partner)} til det grønne feltet!</h2>
-        <div class="maze-phone ${bump ? "bump" : ""}">${GS.mazeSvg(g.maze, { pos: g.pos, trail: g.trail })}</div>
-        <p class="center muted">${g.step === "ready" ? "Starter snart …" : `${g.bumps} kræsj i veggen`}</p>`;
+        <div class="maze-phone ${bump ? "bump" : ""}">${GS.tileMazeSvg(g.grid, g.goal, [g.ball])}</div>
+        <p class="center muted">${g.step === "ready" ? `${esc(g.partner)} kalibrerer … starter om ${countdown(g.endsAt)} s` : `${g.bumps} kræsj i veggen`}</p>`;
     }
-    const arrow = (dir, label) => `<button class="maze-arrow" data-maze-dir="${dir}">${label}</button>`;
-    return head + `<h2 class="center">Du styrer i blinde – lytt til ${esc(g.partner)}!</h2>
-      ${bump ? `<p class="center bad-text">💥 Vegg!</p>` : `<p class="center muted">${g.step === "ready" ? "Starter snart …" : "Trykk én gang per rute."}</p>`}
-      <p class="center muted">Hold inne en pil for å gå flere ruter.</p>
-      <div class="maze-arrows"><span></span>${arrow("up", "▲")}<span></span>${arrow("left", "◀")}<span></span>${arrow("right", "▶")}<span></span>${arrow("down", "▼")}<span></span></div>`;
+    // Styreren: kjenn kræsjet i hånden
+    if (g.bumpAt && g.bumpAt !== lastBumpAt) {
+      lastBumpAt = g.bumpAt;
+      if (navigator.vibrate) navigator.vibrate(120);
+    }
+    if (g.step === "ready") return head + calibrationScreen("Du styrer i blinde", `Vipp mobilen for å rulle ballen. Bare ${esc(g.partner)} ser labyrinten – lytt godt!`, g);
+    return head + `<h1 class="center">Vipp – og lytt til ${esc(g.partner)}!</h1>
+      ${bump ? `<p class="center bad-text">💥 Vegg!</p>` : `<p class="center muted">Du ser ingenting. Ta det rolig – ballen bremser nær veggene.</p>`}
+      <div class="tilt-pad" data-tiltpad><div class="tilt-meter" id="tilt-meter"></div></div>
+      ${motionButton()}`;
   }
-
-  // Labyrint: trykk for ett steg, hold inne for å fortsette i samme retning
-  const mazeHold = { timer: null };
-  document.addEventListener("pointerdown", e => {
-    const btn = e.target.closest("[data-maze-dir]");
-    if (!btn) return;
-    e.preventDefault();
-    const dir = btn.dataset.mazeDir;
-    clearInterval(mazeHold.timer);
-    round("move", { dir });
-    mazeHold.timer = setInterval(() => quiet("move", { dir }), 220);
-  });
-  ["pointerup", "pointercancel", "pointerleave"].forEach(type => document.addEventListener(type, () => {
-    clearInterval(mazeHold.timer);
-    mazeHold.timer = null;
-  }));
 
   // ---------- Bevegelse (gyroskop) ----------
 
@@ -1423,7 +1414,7 @@
 
   GS.onFrame(() => {
     const g = view && view.phase === "round" && view.game;
-    if (!g || g.type !== "ballabyrint" || !g.axes || !g.axes.length) return;
+    if (!g || (g.type !== "ballabyrint" && g.type !== "labyrint") || !g.axes || !g.axes.length) return;
     const tl = tilt();
     const meter = document.getElementById("tilt-meter");
     if (meter) {

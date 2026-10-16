@@ -317,12 +317,20 @@ module.exports = {
   },
 
   // Minirunde – Labyrint (samarbeid)
+  // Samme ballfysikk som Ball gjennom labyrint, men én styrer i blinde og én navigatør
   LABYRINT: {
-    WIDTH: 9, // større labyrint = vanskeligere
-    HEIGHT: 9,
-    READY_SECONDS: 10,
+    WIDTH: 6, // større labyrint = vanskeligere
+    HEIGHT: 6,
+    READY_SECONDS: 15, // tid til å slå på bevegelse og kalibrere
     PLAY_SECONDS: 150,
     REVEAL_SECONDS: 10,
+    TICK_SECONDS: 0.05,
+    BROADCAST_EVERY: 2,
+    ACCEL: 20, // fliser per sekund² ved full vipping
+    FRICTION: 0.94,
+    MAX_SPEED: 6,
+    BRAKE_DISTANCE: 0.6,
+    MIN_BRAKE: 0.25,
     FINISH_POINTS: [600, 450, 350, 250], // etter plassering i mål
     PROGRESS_POINTS: 200 // maks for lag som ikke kom i mål (etter hvor langt de kom)
   },

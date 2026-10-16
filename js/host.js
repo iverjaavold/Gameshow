@@ -1108,9 +1108,9 @@
         <div class="maze-bar"><div style="width:${Math.round(t.progress * 100)}%"></div></div>
       </div>`).join("");
     const head = g.step === "ready"
-      ? title("Snakk dere gjennom!", "Labyrint") + `<p class="center" style="font-size:1.3em">Navigatøren ser labyrinten, styreren ser ingenting. Starter om ${countdown(g.endsAt)} s</p>`
+      ? title("Kalibrer mobilen!", "Labyrint") + `<p class="center" style="font-size:1.3em">Navigatøren ser labyrinten, styreren vipper mobilen i blinde. Starter om ${countdown(g.endsAt)} s</p>`
       : `<div class="round-no center">Labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
-    return head + `<div class="maze-teams">${bars}</div>${g.maze ? `<div class="maze-reveal">${GS.mazeSvg(g.maze)}</div>` : ""}`;
+    return head + `<div class="maze-teams">${bars}</div>${g.grid ? `<div class="maze-reveal">${GS.tileMazeSvg(g.grid, g.goal)}</div>` : ""}`;
   }
 
   function roundBalanse(g) {

@@ -367,29 +367,14 @@ const GS = (function() {
     return `<span class="mine-value ${cls}" data-mine data-start="${g.startedAt}" data-sec-ms="${g.secMs}" data-pps="${g.pps}" data-accel="${g.accel}"></span>`;
   }
 
-  /*
-    Labyrint som SVG. Vegger per rute som bitmaske: N=1, Ø=2, S=4, V=8.
-    opts.pos = { x, y } tegner en markør, opts.trail = [[x, y], ...] tegner veien som er gått.
-  */
-  function mazeSvg(m, opts = {}) {
-    const s = 10;
-    let lines = "";
-    for (let y = 0; y < m.h; y++) {
-      for (let x = 0; x < m.w; x++) {
-        const w = m.walls[y * m.w + x];
-        const X = x * s, Y = y * s;
-        if (w & 1) lines += `M${X} ${Y}h${s}`;
-        if (w & 8) lines += `M${X} ${Y}v${s}`;
-        if (x === m.w - 1 && w & 2) lines += `M${X + s} ${Y}v${s}`;
-        if (y === m.h - 1 && w & 4) lines += `M${X} ${Y + s}h${s}`;
-      }
-    }
-    const goal = `<rect x="${m.goal.x * s + 2}" y="${m.goal.y * s + 2}" width="${s - 4}" height="${s - 4}" rx="2" fill="#4fd17a"/>`;
-    const trail = opts.trail && opts.trail.length > 1
-      ? `<polyline points="${opts.trail.map(([x, y]) => `${x * s + s / 2},${y * s + s / 2}`).join(" ")}" stroke="rgba(255,216,77,.45)" stroke-width="2" fill="none" stroke-linejoin="round"/>`
-      : "";
-    const pos = opts.pos ? `<circle cx="${opts.pos.x * s + s / 2}" cy="${opts.pos.y * s + s / 2}" r="3" fill="#ffd84d"/>` : "";
-    return `<svg class="maze-svg" viewBox="-1 -1 ${m.w * s + 2} ${m.h * s + 2}">${goal}${trail}<path d="${lines}" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none"/>${pos}</svg>`;
+  // Labyrint med fliser (1 = vegg) og baller, brukt av Labyrint og Ball gjennom labyrint
+  function tileMazeSvg(grid, goal, balls = []) {
+    const { W, H, tiles } = grid;
+    let walls = "";
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y * W + x]) walls += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`;
+    const dots = balls.filter(Boolean).map(b => `<circle cx="${b.x}" cy="${b.y}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/>`).join("");
+    return `<svg class="ballmaze-svg" viewBox="0 0 ${W} ${H}"><g fill="#5a6bd8">${walls}</g>
+      <circle cx="${goal.x}" cy="${goal.y}" r="0.4" fill="#4fd17a"/>${dots}</svg>`;
   }
 
   // Pause-skjerm over alt annet. Hosten får en knapp for å fortsette.
@@ -501,6 +486,6 @@ const GS = (function() {
   return {
     esc, attr, api, connect, now, startCountdowns, countdown, render, onFrame,
     figureSvg, FIGURE_OPTIONS, shapeSvg, gridHtml, SHAPE_COLORS, store, lightsHtml, mineHtml,
-    shareGame, openFeedback, joinUrl, mazeSvg
+    shareGame, openFeedback, joinUrl, tileMazeSvg
   };
 })();

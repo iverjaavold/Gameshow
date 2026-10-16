@@ -1,121 +1,28 @@
 /*
-  Minirunde – Labyrint (samarbeid, to og to).
-  Hvert lag har en navigatør som ser labyrinten på mobilen, og en styrer som bare har
-  piltaster og ikke ser noe. De må snakke seg gjennom labyrinten sammen.
-  Hovedskjermen viser en fremdriftsstolpe for hvert lag. Alle lag får samme labyrint.
-  Først i mål får mest. Lag som ikke rekker det, får poeng etter hvor langt de kom.
+  Minirunde – Labyrint (samarbeid, to og to, gyroskop).
+  Hvert lag har en navigatør som ser labyrinten og ballen på mobilen, og en styrer som ikke ser
+  noe, men vipper mobilen for å rulle ballen – samme vipping og kalibrering som i «Balanser ballen».
+  De må snakke seg gjennom labyrinten sammen.
+  Hovedskjermen viser bare en fremdriftsstolpe for hvert lag (labyrinten vises først til slutt).
+  Bruker fysikken fra «Ball gjennom labyrint» (mini-ballabyrint.js), med bremsing nær veggene.
+  Alle lag får samme labyrint. Først i mål får mest, ellers poeng etter hvor langt man kom.
 */
 
 const config = require("../config");
-const { Round, GameError } = require("./base");
-const maze = require("../maze");
+const BallMazeRound = require("./mini-ballabyrint");
 
-const C = config.LABYRINT;
-
-class MazeRound extends Round {
-  start() {
-    const ids = this.activeParticipants();
-    const fixed = (this.options.fixedTeams || [])
-      .map(t => t.filter(id => ids.includes(id)))
-      .filter(t => t.length === 2);
-    const groups = this.game.randomizer.pairs(ids, fixed);
-    this.maze = maze.generate(C.WIDTH, C.HEIGHT);
-    // Første i gruppen ser labyrinten, andre styrer. En tredje er også navigatør.
-    this.teams = groups.map((ids, i) => ({
-      id: i, ids, driver: ids.length > 1 ? ids[1] : ids[0],
-      x: 0, y: 0, bumps: 0, moves: 0, finishedAt: null, place: null, bumpAt: 0, trail: [[0, 0]]
-    }));
-    this.finished = 0;
-    this.step = "ready"; // ready | play | done
-    this.auto(() => this.startPlay(), C.READY_SECONDS);
-    this.changed();
+class MazeRound extends BallMazeRound {
+  get C() {
+    return config.LABYRINT;
   }
 
-  startPlay() {
-    if (this.step !== "ready") return;
-    this.step = "play";
-    this.startedAt = this.game.now();
-    this.auto(() => this.end(), C.PLAY_SECONDS);
-    this.changed();
+  // Styreren (andre på laget) vipper i begge retninger. Er man alene, styrer man selv.
+  driverOf(team) {
+    return team.ids.length > 1 ? team.ids[1] : team.ids[0];
   }
 
-  teamOf(id) {
-    return this.teams.find(t => t.ids.includes(id));
-  }
-
-  move(player, dir) {
-    if (this.step !== "play") throw new GameError("Vent til labyrinten åpner.");
-    const team = this.teamOf(player.id);
-    if (!team || team.driver !== player.id) throw new GameError("Det er styreren som flytter.");
-    if (team.finishedAt) return;
-    if (!maze.DIRS[dir]) throw new GameError("Ugyldig retning.");
-    if (!maze.canMove(this.maze, team.x, team.y, dir)) {
-      team.bumps++;
-      team.bumpAt = this.game.now();
-      this.changed();
-      return;
-    }
-    const d = maze.DIRS[dir];
-    team.x += d.dx;
-    team.y += d.dy;
-    team.moves++;
-    team.trail.push([team.x, team.y]);
-    if (team.trail.length > 200) team.trail.shift();
-    if (team.x === this.maze.goal.x && team.y === this.maze.goal.y) {
-      team.finishedAt = this.game.now();
-      team.place = ++this.finished;
-      if (this.teams.every(t => t.finishedAt)) this.soon(() => this.end());
-    }
-    this.changed();
-  }
-
-  end() {
-    if (this.step === "done") return;
-    this.step = "done";
-    this.teams.forEach(team => {
-      const points = team.place
-        ? C.FINISH_POINTS[Math.min(team.place - 1, C.FINISH_POINTS.length - 1)]
-        : Math.round(maze.progress(this.maze, team.x, team.y) * C.PROGRESS_POINTS / 10) * 10;
-      team.points = points;
-      team.ids.forEach(id => this.game.award(id, points));
-    });
-    const winner = this.teams.filter(t => t.place).sort((a, b) => a.place - b.place)[0];
-    this.lines.push(winner ? `Først i mål: ${this.names(winner.ids).join(" og ")}.` : "Ingen kom i mål.");
-    this.auto(() => this.finish(), C.REVEAL_SECONDS);
-    this.changed();
-  }
-
-  playerAction(player, action, data) {
-    if (action === "move") return this.move(player, data.dir);
-    return super.playerAction(player, action);
-  }
-
-  hostAction(action) {
-    if (action === "next") {
-      if (this.step === "ready") return this.startPlay();
-      if (this.step === "play") return this.end();
-      return this.finish();
-    }
-    return super.hostAction(action);
-  }
-
-  botAct(bot) {
-    if (this.step !== "play") return;
-    const team = this.teamOf(bot.id);
-    if (!team || team.driver !== bot.id || team.finishedAt || !this.chance(0.5)) return;
-    // Bots følger riktig vei, men bommer av og til
-    const here = this.maze.dist[team.y * this.maze.w + team.x];
-    const good = Object.keys(maze.DIRS).find(dir => {
-      if (!maze.canMove(this.maze, team.x, team.y, dir)) return false;
-      const d = maze.DIRS[dir];
-      return this.maze.dist[(team.y + d.dy) * this.maze.w + team.x + d.dx] < here;
-    });
-    const dirs = Object.keys(maze.DIRS);
-    this.move(bot, this.chance(0.75) && good ? good : dirs[Math.floor(Math.random() * dirs.length)]);
-  }
-
-  mazeView() {
-    return { w: this.maze.w, h: this.maze.h, walls: this.maze.walls, goal: this.maze.goal };
+  controls(team, id) {
+    return this.driverOf(team) === id;
   }
 
   hostView() {
@@ -127,36 +34,39 @@ class MazeRound extends Round {
       teams: this.teams.map(t => ({
         names: this.names(t.ids),
         figures: t.ids.map(id => this.publicPlayer(id)),
-        progress: maze.progress(this.maze, t.x, t.y),
+        progress: t.place ? 1 : t.best,
         bumps: t.bumps,
         place: t.place,
         points: this.step === "done" ? t.points : null
       })),
-      maze: this.step === "done" ? this.mazeView() : null,
+      // Labyrinten vises først når runden er ferdig
+      grid: this.step === "done" ? this.grid : null,
+      goal: this.goal,
       actions: [],
       menu
     };
   }
 
   playerView(player) {
-    const team = this.teamOf(player.id);
-    if (!team) return { type: "labyrint", step: this.step, role: null };
-    const role = team.driver === player.id ? "driver" : "navigator";
-    const partner = this.names(team.ids.filter(id => id !== player.id)).join(" og ");
+    const t = this.teamOf(player.id);
+    if (!t) return { type: "labyrint", step: this.step, role: null };
+    const role = this.driverOf(t) === player.id ? "driver" : "navigator";
     return {
       type: "labyrint",
       step: this.step,
       endsAt: this.autoAt,
       role,
-      partner,
-      maze: role === "navigator" || this.step === "done" ? this.mazeView() : null,
-      pos: { x: team.x, y: team.y },
-      trail: role === "navigator" ? team.trail : null,
-      bumpAt: team.bumpAt,
-      bumps: team.bumps,
-      progress: maze.progress(this.maze, team.x, team.y),
-      place: team.place,
-      points: this.step === "done" ? team.points : null
+      axes: role === "driver" ? ["x", "y"] : [],
+      partner: this.names(t.ids.filter(id => id !== player.id)).join(" og "),
+      // Bare navigatøren ser labyrinten og ballen
+      grid: role === "navigator" || this.step === "done" ? this.grid : null,
+      goal: this.goal,
+      ball: role === "navigator" ? { x: +t.x.toFixed(2), y: +t.y.toFixed(2) } : null,
+      bumpAt: t.bumpAt,
+      bumps: t.bumps,
+      progress: t.place ? 1 : t.best,
+      place: t.place,
+      points: this.step === "done" ? t.points : null
     };
   }
 }

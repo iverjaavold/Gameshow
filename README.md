@@ -49,10 +49,10 @@ eller korte spill (3 min eller mindre). Du kan også sortere etter tid eller nav
 
 **Minirunder:** Hvem er hvilket dyr? · Gjett 30 sekunder · Tenk likt · Auksjonen (opptil 4 ganger) ·
 Reaksjonstest · Estimering · Gruva · Bildezoom · Rute-avsløring · Blunke-mafia (anbefalt 5+ deltakere) ·
-Tegn ordet · Nynn sangen · Husk sekvensen · Kun gale svar · Charades · Labyrint (samarbeid) ·
+Tegn ordet · Nynn sangen · Husk sekvensen · Kun gale svar · Charades · Labyrint (samarbeid, gyroskop) ·
 Balanser ballen (gyroskop) · Ball gjennom labyrint (samarbeid, gyroskop) · Gjett dyrelyden (på pause, krever lydfiler)
 
-**Gyroskop-spillene** (Balanser ballen, Ball gjennom labyrint) styres ved å vippe mobilen. På iPhone må hver
+**Gyroskop-spillene** (Balanser ballen, Labyrint, Ball gjennom labyrint) styres ved å vippe mobilen. På iPhone må hver
 spiller trykke «Slå på bevegelse» én gang (krever HTTPS, som Render har). Uten gyroskop kan man dra fingeren
 på feltet i stedet.
 

@@ -5,17 +5,30 @@
   Jo nærmere ballen er en vegg, jo mer bremser den – man kjenner faren før man krasjer.
   Fysikken kjøres på serveren, mobilene sender bare hvor mye de vipper (-1 til 1).
   Alle lag får samme labyrint. Først i mål får mest, ellers poeng etter hvor langt man kom.
+
+  Klassen brukes også av «Labyrint» (mini-labyrint.js), der én styrer i blinde og én guider.
 */
 
 const config = require("../config");
 const { Round, GameError } = require("./base");
 const maze = require("../maze");
 
-const C = config.BALLABYRINT;
 const R = 0.28; // ballens radius i flis-enheter
 
 class BallMazeRound extends Round {
+  get C() {
+    return config.BALLABYRINT;
+  }
+
+  // Hvem styrer hva: første venstre/høyre, andre opp/ned. Er man alene, styrer man begge.
+  // En tredje på laget hjelper til med opp/ned.
+  controls(team, id, axis) {
+    if (axis === "x") return team.ids[0] === id;
+    return team.ids.length > 1 ? team.ids[1] === id || team.ids[2] === id : team.ids[0] === id;
+  }
+
   start() {
+    const C = this.C;
     const ids = this.activeParticipants();
     const fixed = (this.options.fixedTeams || [])
       .map(t => t.filter(id => ids.includes(id)))
@@ -24,10 +37,8 @@ class BallMazeRound extends Round {
     this.maze = maze.generate(C.WIDTH, C.HEIGHT);
     this.grid = maze.toTiles(this.maze);
     this.goal = { x: this.grid.W - 2 + 0.5, y: this.grid.H - 2 + 0.5 };
-    // Første styrer venstre/høyre, andre opp/ned. Er man alene, styrer man begge. En tredje hjelper til med opp/ned.
     this.teams = groups.map((g, i) => ({
-      id: i, ids: g, xCtl: g[0], yCtl: g.length > 1 ? g[1] : g[0],
-      x: 1.5, y: 1.5, vx: 0, vy: 0, tx: 0, ty: 0, place: null, best: 0
+      id: i, ids: g, x: 1.5, y: 1.5, vx: 0, vy: 0, tx: 0, ty: 0, place: null, best: 0, bumps: 0, bumpAt: 0
     }));
     this.finished = 0;
     this.step = "ready"; // ready | play | done
@@ -38,7 +49,7 @@ class BallMazeRound extends Round {
   startPlay() {
     if (this.step !== "ready") return;
     this.step = "play";
-    this.auto(() => this.end(), C.PLAY_SECONDS);
+    this.auto(() => this.end(), this.C.PLAY_SECONDS);
     this.ticks = 0;
     this.tick();
     this.changed();
@@ -77,6 +88,7 @@ class BallMazeRound extends Round {
 
   tick() {
     if (this.step !== "play") return;
+    const C = this.C;
     const dt = C.TICK_SECONDS;
     this.teams.forEach(t => {
       if (t.place) return;
@@ -91,12 +103,17 @@ class BallMazeRound extends Round {
         t.vy *= max / speed;
       }
       // Flytt én akse om gangen, så ballen glir langs veggene
+      const hitSpeed = Math.hypot(t.vx, t.vy);
+      let hit = false;
       const nx = t.x + t.vx * dt;
-      if (this.collides(nx, t.y)) t.vx = 0;
-      else t.x = nx;
+      if (this.collides(nx, t.y)) { t.vx = 0; hit = true; } else t.x = nx;
       const ny = t.y + t.vy * dt;
-      if (this.collides(t.x, ny)) t.vy = 0;
-      else t.y = ny;
+      if (this.collides(t.x, ny)) { t.vy = 0; hit = true; } else t.y = ny;
+      // Kræsj i veggen telles (maks én gang i sekundet)
+      if (hit && hitSpeed > 0.6 && this.game.now() - t.bumpAt > 1000) {
+        t.bumps++;
+        t.bumpAt = this.game.now();
+      }
       t.best = Math.max(t.best, this.progressOf(t));
       if (Math.hypot(t.x - this.goal.x, t.y - this.goal.y) < 0.5) {
         t.place = ++this.finished;
@@ -124,12 +141,14 @@ class BallMazeRound extends Round {
     if (!team) throw new GameError("Du er ikke med på et lag.");
     const v = Math.max(-1, Math.min(1, Number(data.v) || 0));
     const axis = data.axis === "y" ? "y" : "x";
-    if (axis === "x" && team.xCtl === player.id) team.tx = v;
-    if (axis === "y" && (team.yCtl === player.id || (team.ids.length > 2 && team.ids[2] === player.id))) team.ty = v;
+    if (!this.controls(team, player.id, axis)) return;
+    if (axis === "x") team.tx = v;
+    else team.ty = v;
   }
 
   end() {
     if (this.step === "done") return;
+    const C = this.C;
     this.step = "done";
     this.teams.forEach(t => {
       t.points = t.place
@@ -170,8 +189,8 @@ class BallMazeRound extends Round {
       const d = maze.DIRS[dir];
       if (this.maze.dist[(cy + d.dy) * this.maze.w + cx + d.dx] < here) target = { x: 2 * (cx + d.dx) + 1.5, y: 2 * (cy + d.dy) + 1.5 };
     });
-    if (t.xCtl === bot.id) this.tilt(bot, { axis: "x", v: Math.max(-1, Math.min(1, (target.x - t.x) * 1.5)) });
-    if (t.yCtl === bot.id) this.tilt(bot, { axis: "y", v: Math.max(-1, Math.min(1, (target.y - t.y) * 1.5)) });
+    if (this.controls(t, bot.id, "x")) this.tilt(bot, { axis: "x", v: Math.max(-1, Math.min(1, (target.x - t.x) * 1.5)) });
+    if (this.controls(t, bot.id, "y")) this.tilt(bot, { axis: "y", v: Math.max(-1, Math.min(1, (target.y - t.y) * 1.5)) });
   }
 
   hostView() {
@@ -196,9 +215,7 @@ class BallMazeRound extends Round {
   playerView(player) {
     const t = this.teamOf(player.id);
     if (!t) return { type: "ballabyrint", step: this.step, axis: null };
-    const axes = [];
-    if (t.xCtl === player.id) axes.push("x");
-    if (t.yCtl === player.id || (t.ids.length > 2 && t.ids[2] === player.id)) axes.push("y");
+    const axes = ["x", "y"].filter(axis => this.controls(t, player.id, axis));
     return {
       type: "ballabyrint",
       step: this.step,

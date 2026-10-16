@@ -227,12 +227,12 @@ const GAMES = {
   },
   labyrint: {
     module: () => require("./mini-labyrint"), type: "samarbeid", minutes: 4,
-    title: "Labyrint", tag: "Samarbeid – to og to",
-    desc: "Én ser labyrinten, den andre styrer i blinde. Snakk dere gjennom!",
+    title: "Labyrint", tag: "Samarbeid – vipp mobilen i blinde",
+    desc: "Én ser labyrinten, den andre vipper mobilen i blinde. Snakk dere gjennom!",
     rules: [
-      "Dere er to og to. Navigatøren ser labyrinten på mobilen.",
-      "Styreren ser ingenting, men har piltastene.",
-      "Snakk sammen og kom dere i mål. Alle lag får samme labyrint.",
+      "Dere er to og to. Navigatøren ser labyrinten og ballen på mobilen.",
+      "Styreren ser ingenting, men vipper mobilen for å rulle ballen – som i Balanser ballen.",
+      "Kalibrer først. Ballen bremser nær veggene, så ta det rolig og snakk sammen!",
       "Skjermen viser hvor langt hvert lag har kommet. Først i mål får mest."
     ]
   },
@@ -354,7 +354,7 @@ const CATEGORIES = {
   gale: ["individuell", ["quiz", "fysisk"]],
   charades: ["individuell", ["kreativ", "fysisk"]],
   rute: ["individuell", ["quiz"]],
-  labyrint: ["lag", ["fysisk"]],
+  labyrint: ["lag", ["bevegelse", "fysisk"]],
   balanse: ["individuell", ["bevegelse", "reaksjon"]],
   ballabyrint: ["lag", ["bevegelse"]],
   lyd: ["individuell", ["quiz"]],
