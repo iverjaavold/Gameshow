@@ -350,10 +350,10 @@ module.exports = {
 
   // Minirunde – Ball gjennom labyrint (samarbeid, gyroskop)
   BALLABYRINT: {
-    WIDTH: 7, // større labyrint = vanskeligere
-    HEIGHT: 5,
+    WIDTH: 10, // én stor felles labyrint for alle lagene
+    HEIGHT: 6,
     READY_SECONDS: 15, // tid til å slå på bevegelse og kalibrere
-    PLAY_SECONDS: 120,
+    PLAY_SECONDS: 150,
     REVEAL_SECONDS: 10,
     TICK_SECONDS: 0.05,
     BROADCAST_EVERY: 2, // sender ballene til skjermene hver 2. tikk (10 ganger i sekundet)

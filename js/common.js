@@ -372,9 +372,12 @@ const GS = (function() {
     const { W, H, tiles } = grid;
     let walls = "";
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y * W + x]) walls += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`;
-    const dots = balls.filter(Boolean).map(b => `<circle cx="${b.x}" cy="${b.y}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/>`).join("");
-    return `<svg class="ballmaze-svg" viewBox="0 0 ${W} ${H}"><g fill="#5a6bd8">${walls}</g>
-      <circle cx="${goal.x}" cy="${goal.y}" r="0.4" fill="#4fd17a"/>${dots}</svg>`;
+    const dots = balls.filter(Boolean).map(b => `<circle cx="${b.x}" cy="${b.y}" r="0.3" fill="${b.color || "#ffd84d"}" stroke="#fff" stroke-width="0.07"/>`).join("");
+    // Målet: rutete målflagg (ikke en farge, så det ikke forveksles med et lag)
+    const gx = goal.x - 0.42, gy = goal.y - 0.42, q = 0.21;
+    let flag = `<rect x="${gx}" y="${gy}" width="0.84" height="0.84" fill="#fff"/>`;
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2) flag += `<rect x="${gx + i * q}" y="${gy + j * q}" width="${q}" height="${q}" fill="#111"/>`;
+    return `<svg class="ballmaze-svg" viewBox="0 0 ${W} ${H}"><g fill="#5a6bd8">${walls}</g>${flag}${dots}</svg>`;
   }
 
   // Pause-skjerm over alt annet. Hosten får en knapp for å fortsette.

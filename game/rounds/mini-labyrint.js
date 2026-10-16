@@ -33,6 +33,8 @@ class MazeRound extends BallMazeRound {
       endsAt: this.autoAt,
       teams: this.teams.map(t => ({
         names: this.names(t.ids),
+        color: t.color,
+        colorName: t.colorName,
         figures: t.ids.map(id => this.publicPlayer(id)),
         progress: t.place ? 1 : t.best,
         bumps: t.bumps,
@@ -58,6 +60,8 @@ class MazeRound extends BallMazeRound {
       role,
       axes: role === "driver" ? ["x", "y"] : [],
       partner: this.names(t.ids.filter(id => id !== player.id)).join(" og "),
+      color: t.color,
+      colorName: t.colorName,
       // Bare navigatøren ser labyrinten og ballen
       grid: role === "navigator" || this.step === "done" ? this.grid : null,
       goal: this.goal,

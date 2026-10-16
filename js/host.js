@@ -1103,9 +1103,9 @@
   function roundLabyrint(g) {
     const bars = g.teams.map(t => `<div class="maze-team">
         <div class="maze-team-head"><span>${t.figures.map(p => figureSvg(p.figure, p.upgrades, { size: 34 })).join("")}</span>
-          <b>${t.names.map(esc).join(" + ")}</b>
+          <b><span class="team-dot" style="--c:${t.color}"></span> Lag ${esc(t.colorName)}: ${t.names.map(esc).join(" + ")}</b>
           <span class="muted">${t.place ? `🏁 nr. ${t.place}` : `${t.bumps} kræsj`}${t.points !== null ? ` · +${t.points}` : ""}</span></div>
-        <div class="maze-bar"><div style="width:${Math.round(t.progress * 100)}%"></div></div>
+        <div class="maze-bar"><div style="width:${Math.round(t.progress * 100)}%;background:${t.color}"></div></div>
       </div>`).join("");
     const head = g.step === "ready"
       ? title("Kalibrer mobilen!", "Labyrint") + `<p class="center" style="font-size:1.3em">Navigatøren ser labyrinten, styreren vipper mobilen i blinde. Starter om ${countdown(g.endsAt)} s</p>`
@@ -1132,21 +1132,25 @@
       </div>`;
   }
 
+  // Laglisten med farger (Ball gjennom labyrint og Labyrint)
+  function teamLegend(teams) {
+    return `<div class="team-legend">${teams.map(t => `<div class="team-row" style="--c:${t.color}">
+        <span class="team-dot"></span>
+        <div class="team-info"><b>Lag ${esc(t.colorName)}</b><small>${t.names.map(esc).join(" + ")}</small></div>
+        <span class="team-status">${t.place ? `🏁 nr. ${t.place}` : `${Math.round(t.progress * 100)} %`}${t.points !== null && t.points !== undefined ? ` · +${t.points}` : ""}</span>
+      </div>`).join("")}</div>`;
+  }
+
   function roundBallabyrint(g) {
-    const { W, H, tiles } = g.grid;
-    let walls = "";
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y * W + x]) walls += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`;
-    const boards = g.teams.map((t, i) => `<div class="ballmaze-team">
-        <div class="maze-team-head"><b>Lag ${i + 1}: ${t.names.map(esc).join(" + ")}</b>
-          <span class="muted">${t.place ? `🏁 nr. ${t.place}` : `${Math.round(t.progress * 100)} %`}${t.points !== null ? ` · +${t.points}` : ""}</span></div>
-        <svg class="ballmaze-svg" viewBox="0 0 ${W} ${H}"><g fill="#5a6bd8">${walls}</g>
-          <circle cx="${g.goal.x}" cy="${g.goal.y}" r="0.4" fill="#4fd17a"/>
-          <circle cx="${t.x.toFixed(2)}" cy="${t.y.toFixed(2)}" r="0.28" fill="#ffd84d" stroke="#000" stroke-width="0.05"/></svg>
-      </div>`).join("");
-    const head = g.step === "ready"
-      ? title("Kalibrer mobilen!", "Ball gjennom labyrint") + `<p class="center" style="font-size:1.3em">Én vipper sidelengs, én forover. Slå på bevegelse, hold mobilen slik du vil og trykk «Kalibrer». Starter om ${countdown(g.endsAt)} s</p>`
-      : `<div class="round-no center">Ball gjennom labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>`;
-    return head + `<div class="ballmaze-teams">${boards}</div>`;
+    const balls = g.teams.map(t => ({ x: t.x, y: t.y, color: t.color }));
+    const board = `<div class="bm-board">${GS.tileMazeSvg(g.grid, g.goal, balls)}</div>`;
+    if (g.step === "ready") {
+      return title("Kalibrer mobilen!", "Ball gjennom labyrint") +
+        `<p class="center" style="font-size:1.2em">Alle lagene ruller gjennom samme labyrint. Én vipper sidelengs, én forover. Starter om ${countdown(g.endsAt)} s</p>
+        <div class="bm-layout">${board}${teamLegend(g.teams)}</div>`;
+    }
+    return `<div class="round-no center">Ball gjennom labyrint ${g.step === "play" ? `· ${countdown(g.endsAt)} s` : "– ferdig!"}</div>
+      <div class="bm-layout">${board}${teamLegend(g.teams)}</div>`;
   }
 
   let lastPlayId = null;

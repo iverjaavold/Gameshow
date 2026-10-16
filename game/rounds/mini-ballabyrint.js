@@ -1,7 +1,9 @@
 /*
   Minirunde – Ball gjennom labyrint (samarbeid, to og to, gyroskop).
-  Hvert lag har en ball i en labyrint på hovedskjermen. Den ene vipper mobilen til venstre/høyre,
-  den andre forover/bakover. Ingen kommer gjennom alene.
+  Alle lagene ruller hver sin ball gjennom én stor, felles labyrint på hovedskjermen, så man ser
+  de andre gå samme rute. Lagene får farger (Blå, Rød, Grønn …), og ballen har lagets farge.
+  Den ene vipper mobilen til venstre/høyre, den andre forover/bakover. Ingen kommer gjennom alene.
+  Ballene går gjennom hverandre – de kolliderer bare med veggene.
   Jo nærmere ballen er en vegg, jo mer bremser den – man kjenner faren før man krasjer.
   Fysikken kjøres på serveren, mobilene sender bare hvor mye de vipper (-1 til 1).
   Alle lag får samme labyrint. Først i mål får mest, ellers poeng etter hvor langt man kom.
@@ -14,6 +16,14 @@ const { Round, GameError } = require("./base");
 const maze = require("../maze");
 
 const R = 0.28; // ballens radius i flis-enheter
+
+// Lagfarger: navn og farge i den rekkefølgen lagene lages
+const TEAM_COLORS = [
+  { name: "Blå", hex: "#3fa2ff" }, { name: "Rød", hex: "#ff4d5e" }, { name: "Grønn", hex: "#3ddc84" },
+  { name: "Gul", hex: "#ffd23f" }, { name: "Lilla", hex: "#a66bff" }, { name: "Oransje", hex: "#ff9f40" },
+  { name: "Rosa", hex: "#ff6fc1" }, { name: "Turkis", hex: "#2ee6d6" }, { name: "Hvit", hex: "#f4f6ff" },
+  { name: "Brun", hex: "#b07a4f" }
+];
 
 class BallMazeRound extends Round {
   get C() {
@@ -37,9 +47,16 @@ class BallMazeRound extends Round {
     this.maze = maze.generate(C.WIDTH, C.HEIGHT);
     this.grid = maze.toTiles(this.maze);
     this.goal = { x: this.grid.W - 2 + 0.5, y: this.grid.H - 2 + 0.5 };
-    this.teams = groups.map((g, i) => ({
-      id: i, ids: g, x: 1.5, y: 1.5, vx: 0, vy: 0, tx: 0, ty: 0, place: null, best: 0, bumps: 0, bumpAt: 0
-    }));
+    // Alle starter i samme rute, litt forskjøvet så ballene ikke ligger helt oppå hverandre
+    const spread = [[0, 0], [-0.18, -0.18], [0.18, 0.18], [0.18, -0.18], [-0.18, 0.18]];
+    this.teams = groups.map((g, i) => {
+      const [ox, oy] = spread[i % spread.length];
+      const color = TEAM_COLORS[i % TEAM_COLORS.length];
+      return {
+        id: i, ids: g, color: color.hex, colorName: color.name,
+        x: 1.5 + ox, y: 1.5 + oy, vx: 0, vy: 0, tx: 0, ty: 0, place: null, best: 0, bumps: 0, bumpAt: 0
+      };
+    });
     this.finished = 0;
     this.step = "ready"; // ready | play | done
     this.auto(() => this.startPlay(), C.READY_SECONDS);
@@ -157,7 +174,7 @@ class BallMazeRound extends Round {
       t.ids.forEach(id => this.game.award(id, t.points));
     });
     const winner = this.teams.filter(t => t.place).sort((a, b) => a.place - b.place)[0];
-    this.lines.push(winner ? `Først i mål: ${this.names(winner.ids).join(" og ")}.` : "Ingen kom i mål.");
+    this.lines.push(winner ? `Først i mål: lag ${winner.colorName} (${this.names(winner.ids).join(" og ")}).` : "Ingen kom i mål.");
     this.auto(() => this.finish(), C.REVEAL_SECONDS);
     this.changed();
   }
@@ -203,7 +220,10 @@ class BallMazeRound extends Round {
       goal: this.goal,
       teams: this.teams.map(t => ({
         names: this.names(t.ids),
-        x: t.x, y: t.y, place: t.place,
+        figures: t.ids.map(id => this.publicPlayer(id)),
+        color: t.color,
+        colorName: t.colorName,
+        x: +t.x.toFixed(2), y: +t.y.toFixed(2), place: t.place,
         progress: t.place ? 1 : t.best,
         points: this.step === "done" ? t.points : null
       })),
@@ -223,6 +243,8 @@ class BallMazeRound extends Round {
       axes,
       partner: this.names(t.ids.filter(id => id !== player.id)).join(" og "),
       teamNo: t.id + 1,
+      color: t.color,
+      colorName: t.colorName,
       place: t.place,
       points: this.step === "done" ? t.points : null
     };
