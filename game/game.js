@@ -1038,7 +1038,7 @@ class Game {
         inventory: player.inventory,
         catchUp: player.catchUp
       },
-      others: this.playerList.filter(p => p.id !== player.id).map(p => ({ id: p.id, name: p.name })),
+      others: this.playerList.filter(p => p.id !== player.id).map(p => ({ id: p.id, name: p.name, figure: p.figure, upgrades: p.upgrades })),
       shop: {
         open: this.shopOpen && this.phase !== "results",
         locked: !!(this.theft && this.theft.victimId === player.id),

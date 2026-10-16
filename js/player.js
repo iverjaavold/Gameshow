@@ -510,12 +510,17 @@
 
   function drawMain() {
     switch (view.phase) {
-      case "lobby":
+      case "lobby": {
+        const others = view.others.map(o => `<div class="p-mate">${figureSvg(o.figure, o.upgrades, { size: 44 })}<small>${esc(o.name)}</small></div>`).join("");
         return waiting("Du er med!", "Vent på at hosten starter spillet.") +
-          uiBtn("Endre figur", "open", { panel: "figure" }, "secondary");
+          `<div class="p-section"><div class="eyebrow">Med i spillet (${view.others.length + 1})</div>
+            <div class="p-mates">${others || `<p class="muted">Du er den første. Del QR-koden!</p>`}</div></div>` +
+          uiBtn("✏️ Endre figur", "open", { panel: "figure" }, "secondary");
+      }
       case "intro":
-        return `<div class="waiting"><p class="muted">Spill ${view.round.number} av ${view.round.total}</p><h1>${esc(view.round.title)}</h1>
-          <p class="big">${esc(view.round.tag)}</p><p class="muted">Følg med på hovedskjermen!</p></div>`;
+        return `${roundHeader()}<div class="p-intro"><h1>${esc(view.round.title)}</h1><span class="p-tag">${esc(view.round.tag)}</span>
+          <ul class="p-rules">${(view.round.rules || []).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+          <p class="center muted">Starter snart – følg med på hovedskjermen!</p></div>`;
       case "betting": return mainBetting();
       case "buyTeammate": return mainBuy();
       case "leaderPower": return mainLeaderPower();
@@ -584,6 +589,15 @@
 
   // ---------- Runder ----------
 
+  // Felles overskrift: spillnavn, «Spill X av Y» og fremdrift gjennom hele kvelden
+  function roundHeader() {
+    const r = view.round;
+    if (!r) return "";
+    const pct = Math.round(((r.number - (view.phase === "round" ? 0.5 : 1)) / r.total) * 100);
+    return `<div class="p-round"><div class="p-round-row"><b>${esc(r.title)}</b><span>Spill ${r.number} av ${r.total}</span></div>
+      <div class="p-progress"><div style="width:${pct}%"></div></div></div>`;
+  }
+
   function mainRound() {
     if (!view.inRound) return waiting("Du er med fra neste runde!", "Følg med på hovedskjermen.");
     const g = view.game;
@@ -618,7 +632,7 @@
       ballabyrint: roundBallabyrint,
       lyd: roundLyd
     }[g.type];
-    return fn ? fn(g) : "";
+    return fn ? roundHeader() + fn(g) : "";
   }
 
   // Tekstfelt med send-knapp (Enter sender også)
@@ -732,7 +746,7 @@
   function roundAuksjon(g) {
     if (g.step === "bid") {
       return `<h1>🎁 Auksjon! ${countdown(g.endsAt)}</h1>
-        <p>En hemmelig pakke: poeng eller et kort fra shopen. Høyeste bud betaler og får den. Ved likt bud vinner den som bød først.</p>
+        <p>En hemmelig pakke med et tilfeldig antall poeng (100–1500). Den som byr mest, betaler budet og får pakken. Ved likt bud vinner den som bød først.</p>
         ${amountForm("auksjon-bid", "auksjon", g.max, g.myBid, `Ditt bud (maks ${g.max})`)}`;
     }
     if (g.won) return waiting("Du vant auksjonen! 🎉", `Du betalte ${g.paid} poeng. Pakken inneholdt ${esc(g.prize)}.`);
@@ -1043,6 +1057,24 @@
       ${amountForm("final-stake", "finalBet", g.maxStake, g.myBet ? g.myBet.stake : null, `Innsats (riktig gir ${g.payout}× gevinst)`)}
       ${g.myBet ? `<p class="center">Du har satset ${g.myBet.stake} på «${esc(g.outcomes.find(o => o.id === g.myBet.outcome).label)}».</p>` : ""}`;
   }
+
+  // ---------- Mobilen: hold skjermen på og gi følbar respons ----------
+
+  let wakeLock = null;
+  async function keepAwake() {
+    if (!("wakeLock" in navigator) || document.visibilityState !== "visible" || wakeLock) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } catch (e) { /* ikke tillatt eller ikke støttet */ }
+  }
+  // Må startes av et trykk, og settes på igjen når appen kommer tilbake i forgrunnen
+  document.addEventListener("pointerdown", keepAwake, { passive: true });
+  document.addEventListener("visibilitychange", keepAwake);
+
+  document.addEventListener("pointerdown", e => {
+    if (e.target.closest("button, [data-maze-dir], .seq-btn") && navigator.vibrate) navigator.vibrate(8);
+  }, { passive: true });
 
   // ---------- Nye minispill ----------
 
