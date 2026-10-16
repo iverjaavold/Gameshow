@@ -221,3 +221,72 @@ body.host.in-lobby .stage > :first-child { margin-top: 0; }
   .lobby { grid-template-columns: 1fr; height: auto; }
   .join-card { flex-direction: column; text-align: center; }
 }
+
+/* ---------- Mobilen: større, tydeligere og lettere å treffe ---------- */
+body.player {
+  font-size: 18px;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.p-top { padding: calc(8px + env(safe-area-inset-top)) 16px 8px; gap: 8px; }
+.p-top .score { background: rgba(255, 210, 63, .14); border: 1px solid rgba(255, 210, 63, .3); padding: 4px 12px; border-radius: 999px; font-size: 1em; }
+.p-top button { min-height: 40px; min-width: 44px; }
+.p-main { gap: 16px; padding: 14px 16px 28px; }
+.p-main h1 { font-size: 1.75rem; line-height: 1.15; margin: 0; }
+.p-main p { line-height: 1.45; margin: 0; }
+.p-main button { min-height: 50px; }
+.p-main .huge-btn { min-height: 64px; font-size: 1.3em; }
+.p-main .muted { font-size: .92em; }
+
+/* Felt: minst 17px, så iPhone ikke zoomer inn når man skriver */
+.p-main input, .p-main select, .p-main textarea, #join input { font-size: 18px; min-height: 52px; padding: 12px 14px; }
+.p-main .panel { padding: 14px; gap: 10px; }
+
+/* Nedtellinger: tydelige gule merker, røde de siste sekundene */
+.p-main .countdown {
+  display: inline-block;
+  min-width: 2.4em;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: rgba(255, 210, 63, .16);
+  border: 1px solid rgba(255, 210, 63, .35);
+  color: var(--yellow);
+  font-weight: 900;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.p-main .countdown.low { background: rgba(255, 84, 104, .2); border-color: rgba(255, 84, 104, .5); color: #ff8a98; animation: tick 1s ease-in-out infinite; }
+.p-main .big-number .countdown, .p-main .buzzer .countdown { background: none; border: 0; padding: 0; }
+@keyframes tick { 50% { transform: scale(1.08); } }
+
+/* Felles overskrift i rundene */
+.p-round { display: flex; flex-direction: column; gap: 6px; margin-bottom: -4px; }
+.p-round-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: .85em; }
+.p-round-row b { font-family: var(--font-display); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-round-row span { color: var(--muted); white-space: nowrap; }
+.p-progress { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.p-progress div { height: 100%; background: linear-gradient(90deg, var(--pink), var(--yellow)); border-radius: 999px; }
+
+/* Intro med regler */
+.p-intro { display: flex; flex-direction: column; gap: 12px; }
+.p-intro h1 { font-size: 2.1rem; }
+.p-tag { align-self: flex-start; background: var(--pink); color: white; font-weight: 800; font-size: .8em; padding: 4px 12px; border-radius: 999px; }
+.p-rules { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.p-rules li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; line-height: 1.4; }
+.p-rules li::before { content: "✦ "; color: var(--yellow); }
+
+/* Lobbyen på mobilen */
+.p-section { display: flex; flex-direction: column; gap: 10px; }
+.p-mates { display: flex; flex-wrap: wrap; gap: 10px; }
+.p-mate { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px 6px; min-width: 72px; }
+.p-mate small { font-weight: 700; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Meldinger nederst, der tommelen er */
+.toasts { top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); width: min(92vw, 480px); }
+.toast { background: #f4f6ff; color: #0a0e27; text-align: center; }
+.toast.error { background: var(--bad); color: white; }
+
+/* Innlogging: figuren tar mindre plass */
+#join .builder-preview { padding: 0; }
+#join h2 { font-size: 1.2em; margin: 8px 0 0; }
