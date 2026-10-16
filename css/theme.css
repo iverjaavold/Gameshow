@@ -290,3 +290,100 @@ body.player {
 /* Innlogging: figuren tar mindre plass */
 #join .builder-preview { padding: 0; }
 #join h2 { font-size: 1.2em; margin: 8px 0 0; }
+
+/* ---------- Hovedskjermen på mobil eller smal skjerm ---------- */
+/* Hindrer at noe tvinger siden bredere enn skjermen */
+body.host { grid-template-columns: minmax(0, 1fr); }
+.stage > * { min-width: 0; }
+
+@media (max-width: 760px) {
+  body.host { font-size: 15px; height: 100vh; height: 100dvh; --board-h: 15vh; }
+  body.host.compact { --board-h: 13vh; }
+  body.host.in-lobby { --board-h: 0px; overflow: auto; height: auto; min-height: 100dvh; }
+
+  /* Toppfelt: bare det viktigste, på én linje */
+  .topbar { gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; flex-wrap: nowrap; }
+  .brand, .round-label, #feedback-button { display: none; }
+  .code-box { padding: 4px 10px; }
+  .code-box strong { font-size: 1.35em; letter-spacing: 3px; }
+  #share-button { white-space: nowrap; }
+  .connection { margin-left: auto; }
+
+  .stage { padding: 12px 12px calc(96px + env(safe-area-inset-bottom)); gap: 12px; }
+  .stage > :first-child { margin-top: 0; }
+
+  /* Lobbyen: én kolonne */
+  .lobby { grid-template-columns: minmax(0, 1fr); height: auto; gap: 12px; }
+  .card { padding: 14px; }
+  .join-card { flex-direction: column; text-align: center; }
+  .join-card .join-qr { width: min(220px, 62vw); }
+  .join-text .row { justify-content: center; }
+  .players-card { overflow: visible; }
+  .lobby-fig { min-width: 76px; padding: 8px; }
+  .lobby-fig .kick { opacity: 1; }
+  .lobby-right { max-height: none; }
+  .lobby-right .pick-scroll { overflow: visible; }
+
+  /* Filtrene i én rad som kan sveipes */
+  .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 2px 14px 6px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; }
+  .sort-select { margin-left: 0; width: 100%; }
+  .game-pick { padding: 10px; gap: 8px; }
+  .pick-main small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Knappene nederst: en fast stripe over hele bredden */
+  .controls {
+    left: 0; right: 0; bottom: var(--board-h); max-width: none;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    justify-content: center; gap: 8px;
+    background: linear-gradient(to top, rgba(10, 14, 39, .96) 60%, rgba(10, 14, 39, 0));
+  }
+  body.host.in-lobby .controls { position: fixed; bottom: 0; }
+  .controls button { padding: 12px 14px; font-size: .95em; box-shadow: none; }
+  .controls .big-control { flex: 1 1 100%; min-height: 52px; font-size: 1.1em; }
+  .auto-pill { flex: 1 1 100%; text-align: center; padding: 6px; }
+  .controls .menu { bottom: 100%; right: 12px; left: 12px; min-width: 0; }
+
+  /* Poengtavla: mindre figurer */
+  .board { gap: 4px; padding: 4px 8px 0; }
+  .board .name { font-size: .75em; padding: 4px 0 6px; }
+
+  /* Innholdet i rundene */
+  .hero h1 { font-size: clamp(2rem, 9vw, 3rem); overflow-wrap: anywhere; }
+  .mid-title { font-size: clamp(1.5rem, 7vw, 2.2rem) !important; }
+  .hero .rules { grid-template-columns: 1fr; }
+  .quiz-q { font-size: 1.35rem; }
+  .options { grid-template-columns: 1fr; gap: 8px; }
+  .event { font-size: 1.3em; }
+  .big-number { font-size: 3.4rem; }
+  .row { flex-wrap: wrap; }
+  .reveal-table { display: block; overflow-x: auto; font-size: .95em; }
+  .podium { gap: 8px; }
+  .podium .block { width: 26vw; }
+  .tegn-board, .zoom-frame, .rute-frame, .bal-arena { width: min(100%, 52vh) !important; }
+  .seq-pads { width: min(100%, 44vh); }
+  .bal-layout { flex-direction: column; }
+  .bal-scores { width: 100%; min-width: 0; }
+  .ballmaze-teams { grid-template-columns: minmax(0, 1fr); }
+  .maze-team-head { flex-wrap: wrap; font-size: 1em; }
+  .planner { padding: 10px; }
+  .planner-panel { max-height: calc(100dvh - 20px); }
+  .feed { top: auto; bottom: calc(var(--board-h) + 120px); right: 12px; left: 12px; align-items: center; }
+}
+@media (max-width: 760px) {
+  .topbar { overflow: hidden; }
+  .test-badge { font-size: .65em; padding: 4px 8px; letter-spacing: .08em; }
+}
+@media (max-width: 760px) {
+  /* Plass til knappestripen, så den ikke dekker innholdet */
+  .stage { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+  body.host.in-lobby .stage { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .controls { flex-wrap: wrap; row-gap: 6px; }
+  .controls button { padding: 10px 12px; font-size: .9em; }
+  .auto-pill { padding: 4px; font-size: .85em; border: 0; background: none; }
+}
+@media (max-width: 480px) {
+  .landing-card { padding: 40px 20px; }
+  .landing-card h1 { font-size: 13vw; letter-spacing: 0; padding-right: 2px; }
+}
