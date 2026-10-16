@@ -27,8 +27,20 @@ serverloggen (søk etter `[tilbakemelding]` i Render-loggen) og til `tilbakemeld
 
 ### Testmodus
 
-Trykk **«+ Legg til bot (testmodus)»** i lobbyen. Bots spiller alle lekene med tilfeldige svar,
+Trykk **«▶ Test»** ved et spill i lobbyen for å spille bare det spillet med en gang, alene. Appen legger til
+bots så det er nok spillere, og hopper over betting og intro. «TESTMODUS» vises øverst. Trykk «↩ Avslutt test»
+(eller «Tilbake til lobbyen» når testen er ferdig) for å teste et annet spill. Poengene nullstilles.
+Vil du spille selv, trykk «📱 Åpne mobilvisning» i lobbyen. Da åpnes mobilen i en ny fane.
+
+Du kan også trykke **«+ Legg til bot»** i lobbyen. Bots spiller alle lekene med tilfeldige svar,
 så hele spillet kan testes av én person. Bots kan fjernes med ✕ før spillet starter.
+
+### Sortere og filtrere spillene
+
+Over spillisten i lobbyen (og i «Velg spill videre») kan du vise bare lagspill, individuelle spill, store runder,
+minirunder, quiz, kreative spill, spill som skjer i rommet, reaksjon, strategi, spill der man vipper mobilen,
+eller korte spill (3 min eller mindre). Du kan også sortere etter tid eller navn.
+«Velg viste» og «Fjern viste» gjelder bare spillene som vises. Kategoriene står i `game/rounds/index.js`.
 
 ## Spillene
 
@@ -68,7 +80,7 @@ gameshow/
 │   └── rounds/         Én fil per spill (r1-hvelvet.js … r10-finale.js, mini-*.js)
 ├── assets/bilder/      Egne bilder til Bildezoom og Rute-avsløring (valgfritt)
 ├── assets/lyder/       Dyrelyder til Gjett dyrelyden (må legges inn selv)
-├── css/                base.css, game.css (felles), host.css, player.css
+├── css/                base.css, game.css (felles), host.css, player.css, theme.css (designlaget, lastes sist)
 └── js/
     ├── common.js       Felles: API, sanntid, nedtelling, animasjoner, figurtegning
     ├── qrcode.js       QR-generator (Kazuhiko Arase, MIT) til QR-koden i lobbyen

@@ -235,7 +235,7 @@ button.small { padding: 8px 12px; font-size: .9em; }
 @keyframes nynn { 50% { transform: translateY(-14px) rotate(-8deg); } }
 .seq-out { opacity: .35; filter: grayscale(1); }
 
-.seq-pads { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: min(420px, calc(100vh - 380px)); margin: 12px auto; }
+.seq-pads { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: min(400px, calc(100vh - 450px)); margin: 8px auto; }
 .seq-pad { aspect-ratio: 1; border-radius: 24px; background: var(--c); opacity: .22; transition: opacity .08s, transform .08s; }
 .seq-pad.lit { opacity: 1; transform: scale(1.05); box-shadow: 0 0 60px var(--c); }
 
