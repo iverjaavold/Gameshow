@@ -387,3 +387,21 @@ body.host { grid-template-columns: minmax(0, 1fr); }
   .landing-card { padding: 40px 20px; }
   .landing-card h1 { font-size: 13vw; letter-spacing: 0; padding-right: 2px; }
 }
+
+/* ---------- Lagfarger (Ball gjennom labyrint og Labyrint) ---------- */
+.team-dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px rgba(255, 255, 255, .15), 0 0 14px var(--c); flex: none; vertical-align: -2px; }
+.bm-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 20px; align-items: start; }
+.bm-board .ballmaze-svg { max-height: calc(100vh - var(--board-h, 22vh) - 190px); border-radius: 16px; }
+.team-legend { display: flex; flex-direction: column; gap: 8px; }
+.team-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--c); }
+.team-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.team-info b { color: var(--c); font-family: var(--font-display); font-size: 1.1em; }
+.team-info small { color: var(--text); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-status { font-weight: 800; white-space: nowrap; color: var(--muted); }
+.team-banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 16px; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 30%, transparent), rgba(255, 255, 255, .03)); border: 2px solid var(--c); }
+.team-banner .team-dot { width: 26px; height: 26px; }
+.team-banner b { display: block; font-family: var(--font-display); font-size: 1.4em; color: var(--c); }
+.team-banner small { color: var(--text); opacity: .85; }
+@media (max-width: 760px) {
+  .bm-layout { grid-template-columns: minmax(0, 1fr); }
+}
